@@ -1,0 +1,30 @@
+apiVersion: spark.stackable.de/v1
+kind: SparkCluster
+metadata:
+  name: spark-cluster
+spec:
+  master:
+    instances: 1
+    cpu: "100"
+    memory: "1GB"
+    command:
+      - "sleep"
+    args:
+      - "3600"
+    image: busybox
+  worker:
+    instances: 2
+    cpu: "0.5"
+    memory: "2GB"
+    command:
+      - "sleep"
+    args:
+      - "3600"
+    image: busybox
+  metrics: false
+  sparkWebUI: false
+  sparkConfigurationMap: noMap""
+  sparkConfiguration:
+    - "no Config"
+  env:
+    - "no Env"
