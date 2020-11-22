@@ -4,10 +4,10 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 @JsonDeserialize(using = JsonDeserializer.None.class)
-public class Master extends SparkNode {
+public class SparkNodeMaster extends SparkNode {
 	private static final long serialVersionUID = 5917995090358580518L;
 	
-	public Master() {
+	public SparkNodeMaster() {
 		this.setPodName("master");
 	}
 }

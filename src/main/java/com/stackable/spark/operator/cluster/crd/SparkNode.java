@@ -22,7 +22,8 @@ public abstract class SparkNode implements KubernetesResource {
 	private String image;
 	private List<String> command = new ArrayList<String>();
 	private List<String> args = new ArrayList<String>();
-
+	private List<SparkSelector> selectors = new ArrayList<SparkSelector>();
+	
     public String getPodName() {
 		return podName;
 	}
@@ -87,4 +88,12 @@ public abstract class SparkNode implements KubernetesResource {
 		this.args = args;
 	}
 
+	public List<SparkSelector> getSelectors() {
+		return selectors;
+	}
+
+	public void setSelectors(List<SparkSelector> selectors) {
+		this.selectors = selectors;
+	}
+	
 }

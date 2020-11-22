@@ -35,21 +35,6 @@ spec:
                 master:
                   type: object
                   properties:
-                    # selector
-#                    selector: 
-#                      matchLabels:
-#                        type: object
-#                        properties: 
-#                          host:
-#                            type: string
-#                      template:
-#                        metadata:
-#                          type: object
-#                          properties:
-#                            labels:
-#                              host:
-#                              type: string
-                    # end selector
                     instances:
                       type: integer
                     cpu:
@@ -66,24 +51,27 @@ spec:
                       type: array
                       items:
                         type: string
+                    # selector start
+                    selectors:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector: 
+                            type: object
+                            properties:
+                              matchLabels:
+                                type: object
+                                properties:
+                                  host: 
+                                    type: string
+                              instances: 
+                                type: integer
+                                minimum: 1
+                    # end selector
                 worker:
                   type: object
                   properties:
-                    # selector
-#                    selector: 
-#                      matchLabels:
-#                        type: object
-#                        properties: 
-#                          host:
-#                            type: string
-#                      template:
-#                        metadata:
-#                          type: object
-#                          properties:
-#                            labels:
-#                              host:
-#                              type: string
-                    # end selector
                     instances:
                       type: integer
                     cpu:
@@ -100,5 +88,23 @@ spec:
                       type: array
                       items:
                         type: string
+                    # selector start
+                    selectors:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector: 
+                            type: object
+                            properties:
+                              matchLabels:
+                                type: object
+                                properties:
+                                  host: 
+                                    type: string
+                              instances: 
+                                type: integer
+                                minimum: 1
+                    # end selector
                 metrics:
                   type: boolean

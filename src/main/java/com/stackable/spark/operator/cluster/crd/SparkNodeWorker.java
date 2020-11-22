@@ -4,10 +4,10 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 @JsonDeserialize(using = JsonDeserializer.None.class)
-public class Worker extends SparkNode {
+public class SparkNodeWorker extends SparkNode {
 	private static final long serialVersionUID = -1742688274816192240L;
 	
-	public Worker() {
+	public SparkNodeWorker() {
 		this.setPodName("worker");
 	}
 }

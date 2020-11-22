@@ -12,9 +12,9 @@ import org.junit.jupiter.migrationsupport.rules.EnableRuleMigrationSupport;
 
 import com.stackable.spark.operator.cluster.SparkCluster;
 import com.stackable.spark.operator.cluster.SparkClusterList;
-import com.stackable.spark.operator.cluster.crd.Master;
+import com.stackable.spark.operator.cluster.crd.SparkNodeMaster;
 import com.stackable.spark.operator.cluster.crd.SparkClusterSpec;
-import com.stackable.spark.operator.cluster.crd.Worker;
+import com.stackable.spark.operator.cluster.crd.SparkNodeWorker;
 
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
@@ -87,11 +87,11 @@ public class SparkClusterControllerTest {
     private SparkCluster getSparkCluster(String name, String testNamespace, String uid) {
         SparkCluster sparkCluster = new SparkCluster();
         SparkClusterSpec sparkClusterSpec = new SparkClusterSpec();
-        Master master = new Master();
+        SparkNodeMaster master = new SparkNodeMaster();
         master.setInstances(2);
         sparkClusterSpec.setMaster(master);
         
-        Worker worker = new Worker();
+        SparkNodeWorker worker = new SparkNodeWorker();
         worker.setInstances(3);
         sparkClusterSpec.setWorker(worker);
 

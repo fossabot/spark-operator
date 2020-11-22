@@ -9,23 +9,23 @@ import io.fabric8.kubernetes.api.model.KubernetesResource;
 public class SparkClusterSpec implements KubernetesResource {
 	private static final long serialVersionUID = -4949229889562573739L;
 	
-	private Master master;
-	private Worker worker;
+	private SparkNodeMaster master;
+	private SparkNodeWorker worker;
     private Boolean metrics;
 	
-	public Master getMaster() {
+	public SparkNodeMaster getMaster() {
 		return master;
 	}
 
-	public void setMaster(Master master) {
+	public void setMaster(SparkNodeMaster master) {
 		this.master = master;
 	}
 
-	public Worker getWorker() {
+	public SparkNodeWorker getWorker() {
 		return worker;
 	}
 
-	public void setWorker(Worker worker) {
+	public void setWorker(SparkNodeWorker worker) {
 		this.worker = worker;
 	}
 

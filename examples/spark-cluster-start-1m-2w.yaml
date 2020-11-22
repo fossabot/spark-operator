@@ -4,6 +4,11 @@ metadata:
   name: spark-cluster
 spec:
   master:
+    selectors:
+      - selector: 
+         matchLabels:
+           host: "abc"
+         instances: 1
     instances: 1
     cpu: "100"
     memory: "1GB"
@@ -13,6 +18,11 @@ spec:
     args:
       - "3600"
   worker:
+    selectors:
+      - selector: 
+         matchLabels:
+           host: "efg"
+         instances: 2
     instances: 2
     cpu: "0.5"
     memory: "2GB"
