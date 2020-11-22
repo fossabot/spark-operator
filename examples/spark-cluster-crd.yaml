@@ -6,75 +6,6 @@ metadata:
 spec:
   # group name to use for REST API: /apis/<group>/<version>
   group: spark.stackable.de
-  # list of versions supported by this CustomResourceDefinition
-  versions:
-    - name: v1
-      # Each version can be enabled/disabled by Served flag.
-      served: true
-      # One and only one version must be marked as the storage version.
-      storage: true
-      schema:
-        openAPIV3Schema:
-          type: object
-          required: ["spec"]
-          properties:
-            spec:
-              type: object
-              properties:
-                master:
-                  type: object
-                  properties:
-                    instances:
-                      type: integer
-                      minimum: 1
-                    cpu:
-                      type: string
-                    memory:
-                      type: string
-                    command:
-                      type: array
-                      items:
-                        type: string
-                    args:
-                      type: array
-                      items:
-                        type: string
-                    image:
-                      type: string
-                worker:
-                  type: object
-                  properties:
-                    instances:
-                      type: integer
-                      minimum: 1
-                    cpu:
-                      type: string
-                    memory:
-                      type: string
-                    command:
-                      type: array
-                      items:
-                        type: string
-                    args:
-                      type: array
-                      items:
-                        type: string
-                    image:
-                      type: string
-                metrics:
-                  type: boolean
-                sparkWebUI:
-                  type: boolean
-                sparkConfigurationMap:
-                  type: string
-                sparkConfiguration:
-                  type: array
-                  items:
-                    type: string
-                env:
-                  type: array
-                  items:
-                    type: string
   # either Namespaced or Cluster
   scope: Namespaced
   names:
@@ -87,3 +18,87 @@ spec:
     # shortNames allow shorter string to match your resource on the CLI
     shortNames:
     - sc
+  # list of versions supported by this CustomResourceDefinition
+  versions:
+    - name: v1
+      # Each version can be enabled/disabled by Served flag.
+      served: true
+      # One and only one version must be marked as the storage version.
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                master:
+                  type: object
+                  properties:
+                    # selector
+#                    selector: 
+#                      matchLabels:
+#                        type: object
+#                        properties: 
+#                          host:
+#                            type: string
+#                      template:
+#                        metadata:
+#                          type: object
+#                          properties:
+#                            labels:
+#                              host:
+#                              type: string
+                    # end selector
+                    instances:
+                      type: integer
+                    cpu:
+                      type: string
+                    memory:
+                      type: string
+                    image:
+                      type: string
+                    command:
+                      type: array
+                      items:
+                        type: string
+                    args:
+                      type: array
+                      items:
+                        type: string
+                worker:
+                  type: object
+                  properties:
+                    # selector
+#                    selector: 
+#                      matchLabels:
+#                        type: object
+#                        properties: 
+#                          host:
+#                            type: string
+#                      template:
+#                        metadata:
+#                          type: object
+#                          properties:
+#                            labels:
+#                              host:
+#                              type: string
+                    # end selector
+                    instances:
+                      type: integer
+                    cpu:
+                      type: string
+                    memory:
+                      type: string
+                    image:
+                      type: string
+                    command:
+                      type: array
+                      items:
+                        type: string
+                    args:
+                      type: array
+                      items:
+                        type: string
+                metrics:
+                  type: boolean

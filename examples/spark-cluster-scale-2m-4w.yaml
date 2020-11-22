@@ -7,24 +7,18 @@ spec:
     instances: 2
     cpu: "200"
     memory: "2GB"
+    image: busybox
     command:
       - "sleep"
     args:
       - "3600"
-    image: busybox
   worker:
     instances: 4
     cpu: "1.0"
     memory: "3GB"
+    image: busybox
     command:
       - "sleep"
     args:
       - "3600"
-    image: busybox
   metrics: false
-  sparkWebUI: false
-  sparkConfigurationMap: noMap""
-  sparkConfiguration:
-    - "no Config"
-  env:
-    - "no Env"
