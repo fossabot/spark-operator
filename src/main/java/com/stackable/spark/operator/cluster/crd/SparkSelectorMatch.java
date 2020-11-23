@@ -9,7 +9,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.fabric8.kubernetes.api.model.KubernetesResource;
 
 @JsonDeserialize(using = JsonDeserializer.None.class)
-public class SparkSelectorMatch implements KubernetesResource{
+public class SparkSelectorMatch implements KubernetesResource {
 	private static final long serialVersionUID = 7831325703615732467L;
 	
 	private Map<String,String> matchLabels = new HashMap<String, String>();

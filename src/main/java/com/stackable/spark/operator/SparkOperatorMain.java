@@ -41,14 +41,9 @@ public class SparkOperatorMain {
 
             logger.info("Using namespace: " + namespace);
             
-            ClassLoader classloader = Thread.currentThread().getContextClassLoader();
-            InputStream is = classloader.getResourceAsStream("spark-cluster-crd.yaml");
+            // initialize CRDs
+            createOrReplaceCRD(client, namespace, "spark-cluster-crd.yaml");
             
-        	// Load sparkcluster crd into kubernetes 
-        	List<HasMetadata> result = client.load(is).get();
-        	client.resourceList(result).inNamespace(namespace).createOrReplace(); 
-        	logger.info("SparkCluster CRD initilized");
-
             CustomResourceDefinitionContext sparkClusterCRDContext =
             		new CustomResourceDefinitionContext.Builder()
                     .withVersion("v1")
@@ -80,5 +75,16 @@ public class SparkOperatorMain {
         } catch (KubernetesClientException exception) {
             logger.fatal("Kubernetes Client Exception: " + exception.getMessage());
         }
+    }
+    
+    private static List<HasMetadata> createOrReplaceCRD(KubernetesClient client, String namespace, String path) {
+        ClassLoader classloader = Thread.currentThread().getContextClassLoader();
+        InputStream is = classloader.getResourceAsStream(path);
+        
+    	// Load sparkcluster crd into kubernetes 
+    	List<HasMetadata> result = client.load(is).get();
+    	client.resourceList(result).inNamespace(namespace).createOrReplace(); 
+    	logger.info("/" + namespace + "/" + path +" created or replaced");
+    	return result;
     }
 }

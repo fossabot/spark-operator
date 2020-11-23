@@ -1,0 +1,15 @@
+apiVersion: spark.stackable.de/v1
+kind: SparkApplication
+metadata:
+  name: spark-app-example
+spec:
+  image: "spark"
+  mainApplicationFile: "${SPARK_HOME}/examples/jars/spark-examples_2.11-2.4.5.jar"
+  mainClass: "org.apache.spark.examples.SparkPi"
+  driver:
+    cores: "1"
+    coreLimit: "200m"
+  executor:
+    instances: 2
+    cores: "2"
+    coreLimit: "400m"
