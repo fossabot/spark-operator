@@ -235,8 +235,8 @@ public class SparkClusterController {
                 .addNewContainer()
 	            	.withName(node.getImage())
 	            	.withImage(node.getImage())
-	            	// TODO: null / zero check
-	            	.withCommand(node.getCommand().get(0), node.getCommandArgs().get(0))
+	            	.withCommand(node.getCommand())
+	            	.withArgs(node.getArgs())
 	                  .addNewVolumeMount()
 	                  	// TODO: replace hardcoded
 	                  	.withMountPath("/etc/config")

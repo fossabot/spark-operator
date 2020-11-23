@@ -11,13 +11,15 @@ spec:
          instances: 2
     nodeName: ""
     instances: 2 # TODO: remove -> instances moved to selector
-    cpu: "100"
-    memory: "1GB"
-    image: busybox
+    cpu: "1"
+    memory: "1G"
+    # TODO: spec.containers[0].name: Invalid value: "spark:3.0.1":
+    # a DNS-1123 label must consist of lowercase alphanumeric characters or '-'
+    image: "spark-3-0-1-hadoop"
     command:
-      - "sleep"
+      - "/sbin/start-master.sh"
     args:
-      - "3600"
+      - ""
   worker:
     selectors:
       - selector: 
@@ -26,11 +28,17 @@ spec:
          instances: 4
     nodeName: ""
     instances: 4 # TODO: remove -> instances moved to selector
-    cpu: "0.5"
-    memory: "2GB"
-    image: busybox
+    cpu: "2"
+    memory: "2G"
+    # TODO: spec.containers[0].name: Invalid value: "spark:3.0.1":
+    # a DNS-1123 label must consist of lowercase alphanumeric characters or '-'
+    image: "spark-3-0-1-hadoop"
     command:
-      - "sleep"
+      - "/sbin/start-slave.sh"
     args:
-      - "3600"
+      - "<master-spark-url>" 
+      - "--cores"
+      - "2"
+      - "--memory"
+      - "2G"
   metrics: false
