@@ -9,7 +9,8 @@ spec:
          matchLabels:
            host: "abc"
          instances: 2
-    instances: 2
+    nodeName: ""
+    instances: 2 # TODO: remove -> instances moved to selector
     cpu: "100"
     memory: "1GB"
     image: busybox
@@ -23,7 +24,8 @@ spec:
          matchLabels:
            host: "efg"
          instances: 4
-    instances: 4
+    nodeName: ""
+    instances: 4 # TODO: remove -> instances moved to selector
     cpu: "0.5"
     memory: "2GB"
     image: busybox

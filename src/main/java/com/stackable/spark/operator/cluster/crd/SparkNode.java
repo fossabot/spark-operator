@@ -14,8 +14,9 @@ public abstract class SparkNode implements KubernetesResource {
 	private static final long serialVersionUID = 5917995090358580518L;
 
 	@JsonIgnore
-	private String podName;
+	private String typeName;
 
+	private String nodeName;
 	private Integer instances = 1;
 	private String memory;
 	private String cpu;
@@ -24,15 +25,23 @@ public abstract class SparkNode implements KubernetesResource {
 	private List<String> args = new ArrayList<String>();
 	private List<SparkSelector> selectors = new ArrayList<SparkSelector>();
 	
-    public String getPodName() {
-		return podName;
+    public String getTypeName() {
+		return typeName;
 	}
 
-	public void setPodName(String podName) {
-		this.podName = podName;
+	public void setTypeName(String typeName) {
+		this.typeName = typeName;
+	}
+	
+    public String getNodeName() {
+		return nodeName;
 	}
 
-    public Integer getInstances() {
+	public void setNodeName(String nodeName) {
+		this.nodeName = nodeName;
+	}
+
+	public Integer getInstances() {
         return instances;
     }
 

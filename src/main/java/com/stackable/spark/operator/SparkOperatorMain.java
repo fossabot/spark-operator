@@ -1,11 +1,16 @@
 package com.stackable.spark.operator;
 
+import java.io.FileNotFoundException;
+import java.io.InputStream;
+import java.util.List;
+
 import org.apache.log4j.Logger;
 
 import com.stackable.spark.operator.cluster.SparkCluster;
 import com.stackable.spark.operator.cluster.SparkClusterList;
 import com.stackable.spark.operator.controller.SparkClusterController;
 
+import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
@@ -26,7 +31,7 @@ public class SparkOperatorMain {
 	// 10 seconds
     public static long RESYNC_CYCLE = 10 * 1000L;
 
-    public static void main(String args[]) {
+    public static void main(String args[]) throws FileNotFoundException {
         try (KubernetesClient client = new DefaultKubernetesClient()) {
             String namespace = client.getNamespace();
             if (namespace == null) {
@@ -35,6 +40,14 @@ public class SparkOperatorMain {
             }
 
             logger.info("Using namespace: " + namespace);
+            
+            ClassLoader classloader = Thread.currentThread().getContextClassLoader();
+            InputStream is = classloader.getResourceAsStream("spark-cluster-crd.yaml");
+            
+        	// Load sparkcluster crd into kubernetes 
+        	List<HasMetadata> result = client.load(is).get();
+        	client.resourceList(result).inNamespace(namespace).createOrReplace(); 
+        	logger.info("SparkCluster CRD initilized");
 
             CustomResourceDefinitionContext sparkClusterCRDContext =
             		new CustomResourceDefinitionContext.Builder()

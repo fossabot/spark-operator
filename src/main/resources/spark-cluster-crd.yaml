@@ -35,6 +35,9 @@ spec:
                 master:
                   type: object
                   properties:
+                    nodeName:
+                      type: string
+                    # TODO: remove -> instances moved to selector
                     instances:
                       type: integer
                     cpu:
@@ -72,6 +75,9 @@ spec:
                 worker:
                   type: object
                   properties:
+                    nodeName:
+                      type: string
+                    # TODO: remove -> instances moved to selector
                     instances:
                       type: integer
                     cpu:

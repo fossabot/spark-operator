@@ -8,6 +8,6 @@ public class SparkNodeMaster extends SparkNode {
 	private static final long serialVersionUID = 5917995090358580518L;
 	
 	public SparkNodeMaster() {
-		this.setPodName("master");
+		this.setTypeName("master");
 	}
 }

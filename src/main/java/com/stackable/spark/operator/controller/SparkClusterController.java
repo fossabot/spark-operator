@@ -12,9 +12,13 @@ import org.apache.log4j.Logger;
 import com.stackable.spark.operator.cluster.SparkCluster;
 import com.stackable.spark.operator.cluster.crd.SparkNode;
 
+import io.fabric8.kubernetes.api.model.ConfigMapVolumeSource;
+import io.fabric8.kubernetes.api.model.ConfigMapVolumeSourceBuilder;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.Volume;
+import io.fabric8.kubernetes.api.model.VolumeBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
@@ -173,7 +177,7 @@ public class SparkClusterController {
     }
 
     private String createPodName(SparkCluster sparkCluster, SparkNode node) {
-    	return sparkCluster.getMetadata().getName() + "-" + node.getPodName() + "-";
+    	return sparkCluster.getMetadata().getName() + "-" + node.getTypeName() + "-";
     }
 
     private void createPods(int numberOfPods, SparkCluster sparkCluster, SparkNode node) {
@@ -206,7 +210,11 @@ public class SparkClusterController {
         return podNames;
     }
 
-    private Pod createNewPod(SparkCluster sparkCluster, SparkNode node) {
+	private Pod createNewPod(SparkCluster sparkCluster, SparkNode node) {
+		// TODO: replace hardcoded
+		ConfigMapVolumeSource cm = new ConfigMapVolumeSourceBuilder().withName("spark-cluster-worker-config").build();
+		Volume vol = new VolumeBuilder().withName("spark-cluster-config").withConfigMap(cm).build();
+    	
         return new PodBuilder()
                 .withNewMetadata()
                   .withGenerateName(createPodName(sparkCluster, node))
@@ -221,19 +229,24 @@ public class SparkClusterController {
                   .endOwnerReference()
                 .endMetadata()
                 .withNewSpec()
-                  .addNewContainer()
-                  // TODO: remove busybox - just for testing
-                  .withName(node.getImage() == null || node.getImage().isEmpty() ? "busybox" : node.getImage())
-                  .withImage(node.getImage() == null || node.getImage().isEmpty() ? "busybox" : node.getImage())
-                  .withCommand(
-                		  node.getCommand().size() > 0 ? node.getCommand().get(0) : "sleep",
-                		  node.getArgs().size() > 0 ? node.getArgs().get(0) : "sleep"
-                   )
-                  .endContainer()
+                // TODO: check for null / zero elements
+                .withNodeSelector(node.getSelectors().get(0).getSelector().getMatchLabels())
+                .withVolumes(vol)
+                .addNewContainer()
+	            	.withName(node.getImage())
+	            	.withImage(node.getImage())
+	            	// TODO: null / zero check
+	            	.withCommand(node.getCommand().get(0), node.getCommandArgs().get(0))
+	                  .addNewVolumeMount()
+	                  	// TODO: replace hardcoded
+	                  	.withMountPath("/etc/config")
+	                  	.withName("spark-cluster-config")
+	                  .endVolumeMount()
+                .endContainer()
                 .endSpec()
                 .build();
     }
-
+    
     private void enqueueSparkCluster(SparkCluster sparkCluster) {
         String key = Cache.metaNamespaceKeyFunc(sparkCluster);
         if (key != null && !key.isEmpty()) {
