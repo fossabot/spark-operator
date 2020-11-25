@@ -13,7 +13,6 @@ public class SparkSelectorMatch implements KubernetesResource {
 	private static final long serialVersionUID = 7831325703615732467L;
 	
 	private Map<String,String> matchLabels = new HashMap<String, String>();
-	private Integer instances = 1;
 	
 	public Map<String, String> getMatchLabels() {
 		return matchLabels;
@@ -23,12 +22,4 @@ public class SparkSelectorMatch implements KubernetesResource {
 		this.matchLabels = matchLabels;
 	}
 	
-	public Integer getInstances() {
-		return instances;
-	}
-	
-	public void setInstances(Integer instances) {
-		this.instances = instances;
-	}
-
 }

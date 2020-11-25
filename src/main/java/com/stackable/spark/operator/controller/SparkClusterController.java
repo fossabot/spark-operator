@@ -2,7 +2,10 @@ package com.stackable.spark.operator.controller;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -11,15 +14,22 @@ import org.apache.log4j.Logger;
 
 import com.stackable.spark.operator.cluster.SparkCluster;
 import com.stackable.spark.operator.cluster.crd.SparkNode;
+import com.stackable.spark.operator.cluster.crd.SparkNodeMaster;
 
+import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 import io.fabric8.kubernetes.api.model.ConfigMapVolumeSource;
 import io.fabric8.kubernetes.api.model.ConfigMapVolumeSourceBuilder;
+import io.fabric8.kubernetes.api.model.DoneableConfigMap;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.Toleration;
+import io.fabric8.kubernetes.api.model.TolerationBuilder;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
 import io.fabric8.kubernetes.client.informers.cache.Cache;
@@ -49,13 +59,13 @@ public class SparkClusterController {
     private SharedIndexInformer<Pod> podInformer;
     private Lister<Pod> podLister;
 
-    private KubernetesClient kubernetesClient;
+    private KubernetesClient client;
 
-    public SparkClusterController(KubernetesClient kubernetesClient,
+    public SparkClusterController(KubernetesClient client,
     							  SharedIndexInformer<Pod> podInformer,
     							  SharedIndexInformer<SparkCluster> sparkClusterInformer,
     							  String namespace) {
-        this.kubernetesClient = kubernetesClient;
+        this.client = client;
 
         this.sparkClusterLister = new Lister<>(sparkClusterInformer.getIndexer(), namespace);
         this.sparkClusterInformer = sparkClusterInformer;
@@ -155,25 +165,26 @@ public class SparkClusterController {
             return;
         }
 
-        int existingPods = pods.size();
-
-        // Compare with desired state (spec.master.node.instances)
-        // If less then create new pods
-        if (existingPods < node.getInstances()) {
-            createPods(node.getInstances() - existingPods, sparkCluster, node);
-        }
-
-        // If more then delete old pods
-        int diff = existingPods - node.getInstances();
-
-        for (; diff > 0; diff--) {
-        	// TODO: dont remove current master leader!
-            String podName = pods.remove(0);
-            kubernetesClient.pods()
-            				.inNamespace(sparkCluster.getMetadata().getNamespace())
-            				.withName(podName)
-            				.delete();
-        }
+//        // TODO: comment to remove scheduler
+//        int existingPods = pods.size();
+//
+//        // Compare with desired state (spec.master.node.instances)
+//        // If less then create new pods
+//        if (existingPods < node.getInstances()) {
+//            createPods(node.getInstances() - existingPods, sparkCluster, node);
+//        }
+//
+//        // If more then delete old pods
+//        int diff = existingPods - node.getInstances();
+//
+//        for (; diff > 0; diff--) {
+//        	// TODO: dont remove current master leader!
+//            String podName = pods.remove(0);
+//            kubernetesClient.pods()
+//            				.inNamespace(sparkCluster.getMetadata().getNamespace())
+//            				.withName(podName)
+//            				.delete();
+//        }
     }
 
     private String createPodName(SparkCluster sparkCluster, SparkNode node) {
@@ -183,7 +194,7 @@ public class SparkClusterController {
     private void createPods(int numberOfPods, SparkCluster sparkCluster, SparkNode node) {
         for (int index = 0; index < numberOfPods; index++) {
             Pod pod = createNewPod(sparkCluster, node);
-            kubernetesClient.pods().inNamespace(sparkCluster.getMetadata().getNamespace()).create(pod);
+            client.pods().inNamespace(sparkCluster.getMetadata().getNamespace()).create(pod);
         }
     }
 
@@ -191,6 +202,7 @@ public class SparkClusterController {
         List<String> podNames = new ArrayList<>();
         List<Pod> pods = podLister.list();
         String nodeName = createPodName(sparkCluster, node);
+        
         for (Pod pod : pods) {
         	// filter for terminating pods
         	if(pod.getMetadata().getDeletionTimestamp() != null) {
@@ -210,38 +222,47 @@ public class SparkClusterController {
         return podNames;
     }
 
-	private Pod createNewPod(SparkCluster sparkCluster, SparkNode node) {
+	private Pod createNewPod(SparkCluster cluster, SparkNode node) {
 		// TODO: replace hardcoded
-		ConfigMapVolumeSource cm = new ConfigMapVolumeSourceBuilder().withName("spark-cluster-worker-config").build();
-		Volume vol = new VolumeBuilder().withName("spark-cluster-config").withConfigMap(cm).build();
-    	
+		String cmName = createPodName(cluster, node) + "cm";
+		ConfigMapVolumeSource cms = new ConfigMapVolumeSourceBuilder().withName(cmName).build();
+		Volume vol = new VolumeBuilder().withName(cmName).withConfigMap(cms).build();
+		List<Toleration> tolerations = new ArrayList<Toleration>();
+		tolerations.add( new TolerationBuilder().withNewEffect("NoSchedule").withKey("kubernetes.io/arch").withOperator("Equal").withValue("stackable-linux").build());
+		tolerations.add( new TolerationBuilder().withNewEffect("NoExecute").withKey("kubernetes.io/arch").withOperator("Equal").withValue("stackable-linux").build());
+		tolerations.add( new TolerationBuilder().withNewEffect("NoExecute").withKey("node.kubernetes.io/not-ready").withOperator("Exists").withTolerationSeconds(300L).build());
+		tolerations.add( new TolerationBuilder().withNewEffect("NoSchedule").withKey("node.kubernetes.io/unreachable").withOperator("Exists").build());
+		tolerations.add( new TolerationBuilder().withNewEffect("NoExecute").withKey("node.kubernetes.io/unreachable").withOperator("Exists").withTolerationSeconds(300L).build());
+		
         return new PodBuilder()
                 .withNewMetadata()
-                  .withGenerateName(createPodName(sparkCluster, node))
-                  .withNamespace(sparkCluster.getMetadata().getNamespace())
-                  .withLabels(Collections.singletonMap(APP_LABEL, sparkCluster.getMetadata().getName()))
+                  .withGenerateName(createPodName(cluster, node))
+                  .withNamespace(cluster.getMetadata().getNamespace())
+                  .withLabels(Collections.singletonMap(APP_LABEL, cluster.getMetadata().getName()))
                   .addNewOwnerReference()
                   .withController(true)
-                  .withKind(SPARK_CLUSTER_KIND)
-                  .withApiVersion(sparkCluster.getApiVersion())
-                  .withName(sparkCluster.getMetadata().getName())
-                  .withNewUid(sparkCluster.getMetadata().getUid())
+                  .withKind(cluster.getKind())
+                  .withApiVersion(cluster.getApiVersion())
+                  .withName(cluster.getMetadata().getName())
+                  .withNewUid(cluster.getMetadata().getUid())
                   .endOwnerReference()
                 .endMetadata()
                 .withNewSpec()
+                .withTolerations(tolerations)
                 // TODO: check for null / zero elements
                 .withNodeSelector(node.getSelectors().get(0).getSelector().getMatchLabels())
                 .withVolumes(vol)
                 .addNewContainer()
-	            	.withName(node.getImage())
-	            	.withImage(node.getImage())
+                	//TODO: no ":" etc in withName
+	            	.withName("spark-3-0-0")
+	            	.withImage(cluster.getSpec().getImage())
 	            	.withCommand(node.getCommand())
 	            	.withArgs(node.getArgs())
-	                  .addNewVolumeMount()
-	                  	// TODO: replace hardcoded
-	                  	.withMountPath("/etc/config")
-	                  	.withName("spark-cluster-config")
-	                  .endVolumeMount()
+	                .addNewVolumeMount()
+	                	// TODO: replace hardcoded
+	                  	.withMountPath("conf")
+	                  	.withName(cmName)
+	                .endVolumeMount()
                 .endContainer()
                 .endSpec()
                 .build();
@@ -250,7 +271,7 @@ public class SparkClusterController {
     private void enqueueSparkCluster(SparkCluster sparkCluster) {
         String key = Cache.metaNamespaceKeyFunc(sparkCluster);
         if (key != null && !key.isEmpty()) {
-            logger.info("Adding item to workqueue: " + key);
+            logger.info("Adding item to workqueue[" + workqueue.size() + "]: " + key);
             workqueue.add(key);
         }
     }
@@ -258,11 +279,25 @@ public class SparkClusterController {
     private void handlePodObject(Pod pod) {
         OwnerReference ownerReference = getControllerOf(pod);
         Objects.requireNonNull(ownerReference);
+        // check if pod belongs to spark cluster
         if (!ownerReference.getKind().equalsIgnoreCase(SPARK_CLUSTER_KIND)) {
             return;
         }
+        
         SparkCluster sparkCluster = sparkClusterLister.get(ownerReference.getName());
+        
         if (sparkCluster != null) {
+        	// check if node name is set
+        	if(pod.getSpec().getNodeName() != null && !pod.getSpec().getNodeName().isEmpty()) {
+        		logger.info("Received nodeName: " + pod.getSpec().getNodeName() + " for pod: " + pod.getMetadata().getName());
+        		// check for master
+        		if(pod.getMetadata().getGenerateName().contains(SparkNodeMaster.POD_TYPE)) {
+            		// build config map
+        			logger.info("Create config map for master!");
+            		createConfigMap(sparkCluster, pod);        			
+        		}
+        	}
+        	
         	enqueueSparkCluster(sparkCluster);
         }
     }
@@ -276,4 +311,54 @@ public class SparkClusterController {
         }
         return null;
     }
+    
+    private void createConfigMap(SparkCluster cluster, Pod pod) {
+    	String cmName = pod.getMetadata().getGenerateName() + "cm";
+    	
+        Resource<ConfigMap,DoneableConfigMap> configMapResource = client
+        	.configMaps()
+        	.inNamespace(cluster.getMetadata().getNamespace())
+        	.withName(cmName);
+
+        // create cm entry 
+        Map<String,String> data = new HashMap<String,String>();
+        addToConfig(data, "SPARK_MASTER_HOST", pod.getSpec().getNodeName());
+        addToConfig(data, "SPARK_WORKER_CORES", cluster.getSpec().getWorker().getCpu());
+        addToConfig(data, "SPARK_WORKER_MEMORY", cluster.getSpec().getWorker().getMemory());
+        addToConfig(data, cluster.getSpec().getMaster().getEnv());
+        
+        StringBuffer sb = new StringBuffer();
+        for( Entry<String,String> entry : data.entrySet()) {
+        	sb.append(entry.getKey() + "=" + entry.getValue() + "\n");
+        }
+        
+        data.clear();
+        data.put("spark-env.sh", sb.toString());
+        
+        configMapResource.createOrReplace(new ConfigMapBuilder()
+        	.withNewMetadata()
+            	.withName(cmName)
+            .endMetadata()
+            .addToData(data)
+            .build());
+    }
+    
+    private void addToConfig(Map<String,String> data, String key, String value) {
+    	if(value != null && !value.isEmpty() ) { 
+    		data.put(key, value);
+    	}
+    }
+    
+    private void addToConfig(Map<String,String> data, List<Map<String,String>> env) {
+    	if( env == null || env.size() == 0) return;
+    	
+    	for(Map<String,String> vars : env) {
+    		String key = vars.get("name");
+    		String value = vars.get("value");
+    		
+    		if(key == null || value == null ) continue;
+    			data.put(key, value);
+    	}
+    }
+    
 }

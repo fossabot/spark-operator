@@ -35,25 +35,12 @@ spec:
                 master:
                   type: object
                   properties:
-                    nodeName:
-                      type: string
-                    # TODO: remove -> instances moved to selector
                     instances:
                       type: integer
                     cpu:
                       type: string
                     memory:
                       type: string
-                    image:
-                      type: string
-                    command:
-                      type: array
-                      items:
-                        type: string
-                    args:
-                      type: array
-                      items:
-                        type: string
                     # selector start
                     selectors:
                       type: array
@@ -66,34 +53,35 @@ spec:
                               matchLabels:
                                 type: object
                                 properties:
-                                  host: 
+                                  kubernetes.io/hostname:
                                     type: string
-                              instances: 
-                                type: integer
-                                minimum: 1
                     # end selector
+                    command:
+                      type: array
+                      items:
+                        type: string
+                    args:
+                      type: array
+                      items:
+                        type: string
+                    env:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name: 
+                            type: string
+                          value: 
+                            type: string
                 worker:
                   type: object
                   properties:
-                    nodeName:
-                      type: string
-                    # TODO: remove -> instances moved to selector
                     instances:
                       type: integer
                     cpu:
                       type: string
                     memory:
                       type: string
-                    image:
-                      type: string
-                    command:
-                      type: array
-                      items:
-                        type: string
-                    args:
-                      type: array
-                      items:
-                        type: string
                     # selector start
                     selectors:
                       type: array
@@ -106,11 +94,27 @@ spec:
                               matchLabels:
                                 type: object
                                 properties:
-                                  host: 
+                                  kubernetes.io/hostname:
                                     type: string
-                              instances: 
-                                type: integer
-                                minimum: 1
                     # end selector
+                    command:
+                      type: array
+                      items:
+                        type: string
+                    args:
+                      type: array
+                      items:
+                        type: string
+                    env:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name: 
+                            type: string
+                          value: 
+                            type: string
+                image:
+                  type: string
                 metrics:
                   type: boolean

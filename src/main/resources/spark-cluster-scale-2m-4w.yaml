@@ -7,38 +7,31 @@ spec:
     selectors:
       - selector: 
          matchLabels:
-           host: "abc"
-         instances: 2
-    nodeName: ""
-    instances: 2 # TODO: remove -> instances moved to selector
+           kubernetes.io/hostname: "bawa-virtualbox"
+    instances: 2
     cpu: "1"
     memory: "1G"
-    # TODO: spec.containers[0].name: Invalid value: "spark:3.0.1":
-    # a DNS-1123 label must consist of lowercase alphanumeric characters or '-'
-    image: "spark-3-0-1-hadoop"
     command:
-      - "/sbin/start-master.sh"
-    args:
-      - ""
+      - "sbin/start-master.sh"
+    env:
+      - name: SPARK_HOME
+        value: "{{packageroot}}"
+      - name: SPARK_CONF_DIR
+        value: "{{configroot}}"
   worker:
     selectors:
       - selector: 
          matchLabels:
-           host: "efg"
-         instances: 4
-    nodeName: ""
-    instances: 4 # TODO: remove -> instances moved to selector
+           kubernetes.io/hostname: "bawa-virtualbox"
+    instances: 4 
     cpu: "2"
     memory: "2G"
-    # TODO: spec.containers[0].name: Invalid value: "spark:3.0.1":
-    # a DNS-1123 label must consist of lowercase alphanumeric characters or '-'
-    image: "spark-3-0-1-hadoop"
     command:
-      - "/sbin/start-slave.sh"
-    args:
-      - "<master-spark-url>" 
-      - "--cores"
-      - "2"
-      - "--memory"
-      - "2G"
+      - "sbin/start-slave.sh"
+    env:
+      - name: SPARK_HOME
+        value: "{{packageroot}}"
+      - name: SPARK_CONF_DIR
+        value: "{{configroot}}"
+  image: "spark:3.0.1"
   metrics: false

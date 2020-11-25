@@ -11,6 +11,7 @@ public class SparkClusterSpec implements KubernetesResource {
 	
 	private SparkNodeMaster master;
 	private SparkNodeWorker worker;
+	private String image;
     private Boolean metrics;
 	
 	public SparkNodeMaster getMaster() {
@@ -27,6 +28,14 @@ public class SparkClusterSpec implements KubernetesResource {
 
 	public void setWorker(SparkNodeWorker worker) {
 		this.worker = worker;
+	}
+	
+	public String getImage() {
+		return image;
+	}
+
+	public void setImage(String image) {
+		this.image = image;
 	}
 
 	public Boolean getMetrics() {

@@ -1,7 +1,9 @@
 package com.stackable.spark.operator.cluster.crd;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.JsonDeserializer;
@@ -16,14 +18,13 @@ public abstract class SparkNode implements KubernetesResource {
 	@JsonIgnore
 	private String typeName;
 
-	private String nodeName;
 	private Integer instances = 1;
 	private String memory;
 	private String cpu;
-	private String image;
+	private List<SparkSelector> selectors = new ArrayList<SparkSelector>();
 	private List<String> command = new ArrayList<String>();
 	private List<String> args = new ArrayList<String>();
-	private List<SparkSelector> selectors = new ArrayList<SparkSelector>();
+	private List<Map<String,String>> env = new ArrayList<Map<String,String>>();
 	
     public String getTypeName() {
 		return typeName;
@@ -33,14 +34,6 @@ public abstract class SparkNode implements KubernetesResource {
 		this.typeName = typeName;
 	}
 	
-    public String getNodeName() {
-		return nodeName;
-	}
-
-	public void setNodeName(String nodeName) {
-		this.nodeName = nodeName;
-	}
-
 	public Integer getInstances() {
         return instances;
     }
@@ -65,14 +58,14 @@ public abstract class SparkNode implements KubernetesResource {
         this.cpu = cpu;
     }
     
-	public String getImage() {
-		return image;
+	public List<SparkSelector> getSelectors() {
+		return selectors;
 	}
 
-	public void setImage(String image) {
-		this.image = image;
+	public void setSelectors(List<SparkSelector> selectors) {
+		this.selectors = selectors;
 	}
-
+    
     public List<String> getCommand() {
         return command;
     }
@@ -97,12 +90,12 @@ public abstract class SparkNode implements KubernetesResource {
 		this.args = args;
 	}
 
-	public List<SparkSelector> getSelectors() {
-		return selectors;
+	public List<Map<String, String>> getEnv() {
+		return env;
 	}
 
-	public void setSelectors(List<SparkSelector> selectors) {
-		this.selectors = selectors;
+	public void setEnv(List<Map<String, String>> env) {
+		this.env = env;
 	}
-	
+
 }
