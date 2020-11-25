@@ -294,7 +294,7 @@ public class SparkClusterController {
         		if(pod.getMetadata().getGenerateName().contains(SparkNodeMaster.POD_TYPE)) {
             		// build config map
         			logger.info("Create config map for master!");
-            		createConfigMap(sparkCluster, pod);        			
+        			createConfigMap(sparkCluster, pod);        			
         		}
         	}
         	

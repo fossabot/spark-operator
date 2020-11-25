@@ -1,5 +1,8 @@
 package com.stackable.spark.operator.application.crd;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
@@ -11,6 +14,11 @@ public class SparkApplicationDriver implements KubernetesResource {
 
 	private String cores;
 	private String coreLimits;
+	private String memory;
+	private String memoryOverhead;
+	private String image;
+	private String serviceAccount;
+	private Map<String,String> labels = new HashMap<String,String>();
 	
 	public String getCores() {
 		return cores;
@@ -26,6 +34,46 @@ public class SparkApplicationDriver implements KubernetesResource {
 	
 	public void setCoreLimits(String coreLimits) {
 		this.coreLimits = coreLimits;
+	}
+
+	public String getMemory() {
+		return memory;
+	}
+
+	public void setMemory(String memory) {
+		this.memory = memory;
+	}
+
+	public String getMemoryOverhead() {
+		return memoryOverhead;
+	}
+
+	public void setMemoryOverhead(String memoryOverhead) {
+		this.memoryOverhead = memoryOverhead;
+	}
+	
+	public String getImage() {
+		return image;
+	}
+
+	public void setImage(String image) {
+		this.image = image;
+	}
+
+	public String getServiceAccount() {
+		return serviceAccount;
+	}
+
+	public void setServiceAccount(String serviceAccount) {
+		this.serviceAccount = serviceAccount;
+	}
+
+	public Map<String, String> getLabels() {
+		return labels;
+	}
+
+	public void setLabels(Map<String, String> labels) {
+		this.labels = labels;
 	}
 	
 }

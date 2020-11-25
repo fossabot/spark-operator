@@ -45,12 +45,24 @@ spec:
                   type: string
                 mode:
                   type: string
+                restartPolicy:
+                  type: string
+                imagePullPolicy:
+                  type: string
                 driver:
                   type: object
                   properties: 
                     cores: 
                       type: string
                     coreLimit:
+                      type: string
+                    memory:
+                      type: string
+                    memoryOverhead: 
+                      type: string
+                    image:
+                      type: string
+                    serviceAccount:
                       type: string
                 executor:
                   type: object
@@ -61,6 +73,12 @@ spec:
                       type: string
                     coreLimit:
                       type: string
+                    memory:
+                      type: string
+                    memoryOverhead: 
+                      type: string
+                    image:
+                      type: string
                 dependencies:
                   type: array
                   items:
@@ -69,3 +87,12 @@ spec:
                   type: array
                   items:
                     type: string
+                env:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name: 
+                        type: string
+                      value: 
+                        type: string

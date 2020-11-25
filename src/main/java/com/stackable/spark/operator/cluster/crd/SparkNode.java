@@ -1,7 +1,6 @@
 package com.stackable.spark.operator.cluster.crd;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 

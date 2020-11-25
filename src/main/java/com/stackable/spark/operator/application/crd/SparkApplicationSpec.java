@@ -2,6 +2,7 @@ package com.stackable.spark.operator.application.crd;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
@@ -18,10 +19,13 @@ public class SparkApplicationSpec implements KubernetesResource {
 	private String sparkConfigMap;
 	private String type;
 	private String mode;
+	private String restartPolicy;
+	private String imagePullPolicy;
 	private SparkApplicationDriver driver;
 	private SparkApplicationExecutor executor;
 	private List<String> dependencies = new ArrayList<String>();
 	private List<String> args = new ArrayList<String>();
+	private List<Map<String,String>> env = new ArrayList<Map<String,String>>();
 	
 	public String getImage() {
 		return image;
@@ -71,6 +75,22 @@ public class SparkApplicationSpec implements KubernetesResource {
 		this.mode = mode;
 	}
 	
+	public String getRestartPolicy() {
+		return restartPolicy;
+	}
+
+	public void setRestartPolicy(String restartPolicy) {
+		this.restartPolicy = restartPolicy;
+	}
+
+	public String getImagePullPolicy() {
+		return imagePullPolicy;
+	}
+
+	public void setImagePullPolicy(String imagePullPolicy) {
+		this.imagePullPolicy = imagePullPolicy;
+	}
+
 	public SparkApplicationDriver getDriver() {
 		return driver;
 	}
@@ -101,6 +121,14 @@ public class SparkApplicationSpec implements KubernetesResource {
 	
 	public void setArgs(List<String> args) {
 		this.args = args;
+	}
+
+	public List<Map<String, String>> getEnv() {
+		return env;
+	}
+
+	public void setEnv(List<Map<String, String>> env) {
+		this.env = env;
 	}
 	
 }
