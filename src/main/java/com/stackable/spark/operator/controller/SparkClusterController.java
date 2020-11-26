@@ -13,6 +13,7 @@ import java.util.concurrent.BlockingQueue;
 import org.apache.log4j.Logger;
 
 import com.stackable.spark.operator.cluster.SparkCluster;
+import com.stackable.spark.operator.cluster.SparkClusterList;
 import com.stackable.spark.operator.cluster.crd.SparkNode;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
@@ -23,14 +24,17 @@ import io.fabric8.kubernetes.api.model.DoneableConfigMap;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.api.model.Toleration;
 import io.fabric8.kubernetes.api.model.TolerationBuilder;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.Resource;
+import io.fabric8.kubernetes.client.dsl.base.CustomResourceDefinitionContext;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
+import io.fabric8.kubernetes.client.informers.SharedInformerFactory;
 import io.fabric8.kubernetes.client.informers.cache.Cache;
 import io.fabric8.kubernetes.client.informers.cache.Lister;
 
@@ -38,7 +42,7 @@ import io.fabric8.kubernetes.client.informers.cache.Lister;
  * Mirroring ReplicaSet from Kubernetes API for master and worker
  * 
  */
-public class SparkClusterController {
+public class SparkClusterController extends AbstractCrdController<SparkCluster, SparkClusterList>{
     public static final Logger logger = Logger.getLogger(SparkClusterController.class.getName());
 
     public static final String SPARK_CLUSTER_KIND 	= "SparkCluster";
@@ -52,48 +56,39 @@ public class SparkClusterController {
 
     private BlockingQueue<String> workqueue;
 
-    private SharedIndexInformer<SparkCluster> sparkClusterInformer;
-    private Lister<SparkCluster> sparkClusterLister;
-
     private SharedIndexInformer<Pod> podInformer;
     private Lister<Pod> podLister;
-
-    private KubernetesClient client;
-
+    
     public SparkClusterController(KubernetesClient client,
-    							  SharedIndexInformer<Pod> podInformer,
-    							  SharedIndexInformer<SparkCluster> sparkClusterInformer,
-    							  String namespace) {
-        this.client = client;
-
-        this.sparkClusterLister = new Lister<>(sparkClusterInformer.getIndexer(), namespace);
-        this.sparkClusterInformer = sparkClusterInformer;
-
+    							  SharedInformerFactory informerFactory,
+    							  CustomResourceDefinitionContext crdContext,
+    							  String namespace,
+								  Long resyncCycle) {
+		super(client, informerFactory, crdContext, namespace, resyncCycle);
+		
+        this.podInformer = informerFactory.sharedIndexInformerFor(Pod.class, PodList.class, resyncCycle);
         this.podLister = new Lister<>(podInformer.getIndexer(), namespace);
-        this.podInformer = podInformer;
 
         this.workqueue = new ArrayBlockingQueue<>(WORKING_QUEUE_SIZE);
     }
 
-    public void create() {
-        sparkClusterInformer.addEventHandler(new ResourceEventHandler<SparkCluster>() {
-            @Override
-            public void onAdd(SparkCluster sparkCluster) {
-                enqueueSparkCluster(sparkCluster);
-            }
+	@Override
+	protected void onCrdAdd(SparkCluster crd) {
+		enqueueSparkCluster(crd);
+	}
 
-            @Override
-            public void onUpdate(SparkCluster sparkCluster, SparkCluster newSparkCluster) {
-                enqueueSparkCluster(newSparkCluster);
-            }
+	@Override
+	protected void onCrdUpdate(SparkCluster crdOld, SparkCluster crdNew) {
+		enqueueSparkCluster(crdNew);
+	}
 
-            @Override
-            public void onDelete(SparkCluster sparkCluster, boolean deletedFinalStateUnknown) {
-            	// skip
-            }
-        });
-
-        podInformer.addEventHandler(new ResourceEventHandler<Pod>() {
+	@Override
+	protected void onCrdDelete(SparkCluster crd, boolean deletedFinalStateUnknown) {
+		// skip
+	}
+	
+	public void registerOtherEventHandler() {
+		podInformer.addEventHandler(new ResourceEventHandler<Pod>() {
             @Override
             public void onAdd(Pod pod) {
                 handlePodObject(pod);
@@ -112,14 +107,13 @@ public class SparkClusterController {
                 // skip
             }
         });
-
-    }
+	}
 
     public void run() {
-        logger.info("Starting " + SparkCluster.class.getName() + " Controller");
+        logger.info("Starting " + SparkClusterController.class.getName());
 
         // wait until informer has synchronized
-        while (!podInformer.hasSynced() || !sparkClusterInformer.hasSynced()) {;}
+        while (!podInformer.hasSynced() || ! crdSharedIndexInformer.hasSynced()) {;}
 
         while (true) {
             try {
@@ -135,7 +129,7 @@ public class SparkClusterController {
 
                 // Get the SparkCluster resource's name from key which is in format namespace/name
                 String name = key.split("/")[1];
-                SparkCluster sparkCluster = sparkClusterLister.get(key.split("/")[1]);
+                SparkCluster sparkCluster = crdLister.get(key.split("/")[1]);
 
                 if (sparkCluster == null) {
                     logger.fatal(String.format("SparkCluster %s in workqueue no longer exists", name));
@@ -194,7 +188,7 @@ public class SparkClusterController {
         for (int index = 0; index < numberOfPods; index++) {
             Pod pod = createNewPod(sparkCluster, node);
             Pod tmp = client.pods().inNamespace(sparkCluster.getMetadata().getNamespace()).create(pod);
-            logger.info("----------> Created Pod: " + tmp.getMetadata().getName());
+            logger.info("Created Pod: " + tmp.getMetadata().getName());
         }
     }
 
@@ -285,7 +279,7 @@ public class SparkClusterController {
             return;
         }
         
-        SparkCluster sparkCluster = sparkClusterLister.get(ownerReference.getName());
+        SparkCluster sparkCluster = crdLister.get(ownerReference.getName());
         
         if (sparkCluster != null) {
         	// check if node name is set
@@ -346,5 +340,5 @@ public class SparkClusterController {
     		data.put(key, value);
     	}
     }
-    
+
 }
