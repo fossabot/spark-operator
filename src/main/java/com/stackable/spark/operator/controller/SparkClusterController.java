@@ -14,7 +14,6 @@ import org.apache.log4j.Logger;
 
 import com.stackable.spark.operator.cluster.SparkCluster;
 import com.stackable.spark.operator.cluster.crd.SparkNode;
-import com.stackable.spark.operator.cluster.crd.SparkNodeMaster;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
@@ -165,26 +164,26 @@ public class SparkClusterController {
             return;
         }
 
-//        // TODO: comment to remove scheduler
-//        int existingPods = pods.size();
-//
-//        // Compare with desired state (spec.master.node.instances)
-//        // If less then create new pods
-//        if (existingPods < node.getInstances()) {
-//            createPods(node.getInstances() - existingPods, sparkCluster, node);
-//        }
-//
-//        // If more then delete old pods
-//        int diff = existingPods - node.getInstances();
-//
-//        for (; diff > 0; diff--) {
-//        	// TODO: dont remove current master leader!
-//            String podName = pods.remove(0);
-//            kubernetesClient.pods()
-//            				.inNamespace(sparkCluster.getMetadata().getNamespace())
-//            				.withName(podName)
-//            				.delete();
-//        }
+        // TODO: comment to remove scheduler
+        int existingPods = pods.size();
+
+        // Compare with desired state (spec.master.node.instances)
+        // If less then create new pods
+        if (existingPods < node.getInstances()) {
+            createPods(node.getInstances() - existingPods, sparkCluster, node);
+        }
+
+        // If more then delete old pods
+        int diff = existingPods - node.getInstances();
+
+        for (; diff > 0; diff--) {
+        	// TODO: dont remove current master leader!
+            String podName = pods.remove(0);
+            client.pods()
+            	.inNamespace(sparkCluster.getMetadata().getNamespace())
+            	.withName(podName)
+            	.delete();
+        }
     }
 
     private String createPodName(SparkCluster sparkCluster, SparkNode node) {
@@ -194,7 +193,8 @@ public class SparkClusterController {
     private void createPods(int numberOfPods, SparkCluster sparkCluster, SparkNode node) {
         for (int index = 0; index < numberOfPods; index++) {
             Pod pod = createNewPod(sparkCluster, node);
-            client.pods().inNamespace(sparkCluster.getMetadata().getNamespace()).create(pod);
+            Pod tmp = client.pods().inNamespace(sparkCluster.getMetadata().getNamespace()).create(pod);
+            logger.info("----------> Created Pod: " + tmp.getMetadata().getName());
         }
     }
 
@@ -209,12 +209,12 @@ public class SparkClusterController {
         		logger.info("Found Terminating pod: " + pod.getMetadata().getName());
         		continue;
         	}
-        	// differentiate masters and workers
+        	// TODO: differentiate masters and workers
         	if (pod.getMetadata().getName().contains(nodeName)) {
-                if (pod.getStatus().getPhase().equals(POD_RUNNING) ||
-                	pod.getStatus().getPhase().equals(POD_PENDING)) {
+                //if (pod.getStatus().getPhase().equals(POD_RUNNING) ||
+                //	pod.getStatus().getPhase().equals(POD_PENDING)) {
                     podNames.add(pod.getMetadata().getName());
-                }
+                //}
             }
         }
 
@@ -233,7 +233,7 @@ public class SparkClusterController {
 		tolerations.add( new TolerationBuilder().withNewEffect("NoExecute").withKey("node.kubernetes.io/not-ready").withOperator("Exists").withTolerationSeconds(300L).build());
 		tolerations.add( new TolerationBuilder().withNewEffect("NoSchedule").withKey("node.kubernetes.io/unreachable").withOperator("Exists").build());
 		tolerations.add( new TolerationBuilder().withNewEffect("NoExecute").withKey("node.kubernetes.io/unreachable").withOperator("Exists").withTolerationSeconds(300L).build());
-		
+
         return new PodBuilder()
                 .withNewMetadata()
                   .withGenerateName(createPodName(cluster, node))
@@ -254,7 +254,7 @@ public class SparkClusterController {
                 .withVolumes(vol)
                 .addNewContainer()
                 	//TODO: no ":" etc in withName
-	            	.withName("spark-3-0-0")
+	            	.withName("spark3")
 	            	.withImage(cluster.getSpec().getImage())
 	            	.withCommand(node.getCommand())
 	            	.withArgs(node.getArgs())
@@ -263,6 +263,7 @@ public class SparkClusterController {
 	                  	.withMountPath("conf")
 	                  	.withName(cmName)
 	                .endVolumeMount()
+	                .withEnv(node.getEnv())
                 .endContainer()
                 .endSpec()
                 .build();
@@ -291,11 +292,11 @@ public class SparkClusterController {
         	if(pod.getSpec().getNodeName() != null && !pod.getSpec().getNodeName().isEmpty()) {
         		logger.info("Received nodeName: " + pod.getSpec().getNodeName() + " for pod: " + pod.getMetadata().getName());
         		// check for master
-        		if(pod.getMetadata().getGenerateName().contains(SparkNodeMaster.POD_TYPE)) {
+        		//if(pod.getMetadata().getGenerateName().contains(SparkNodeMaster.POD_TYPE)) {
             		// build config map
-        			logger.info("Create config map for master!");
+        			logger.info("Create config map for: " + pod.getSpec().getNodeName());
         			createConfigMap(sparkCluster, pod);        			
-        		}
+        		//}
         	}
         	
         	enqueueSparkCluster(sparkCluster);
@@ -323,9 +324,6 @@ public class SparkClusterController {
         // create cm entry 
         Map<String,String> data = new HashMap<String,String>();
         addToConfig(data, "SPARK_MASTER_HOST", pod.getSpec().getNodeName());
-        addToConfig(data, "SPARK_WORKER_CORES", cluster.getSpec().getWorker().getCpu());
-        addToConfig(data, "SPARK_WORKER_MEMORY", cluster.getSpec().getWorker().getMemory());
-        addToConfig(data, cluster.getSpec().getMaster().getEnv());
         
         StringBuffer sb = new StringBuffer();
         for( Entry<String,String> entry : data.entrySet()) {
@@ -346,18 +344,6 @@ public class SparkClusterController {
     private void addToConfig(Map<String,String> data, String key, String value) {
     	if(value != null && !value.isEmpty() ) { 
     		data.put(key, value);
-    	}
-    }
-    
-    private void addToConfig(Map<String,String> data, List<Map<String,String>> env) {
-    	if( env == null || env.size() == 0) return;
-    	
-    	for(Map<String,String> vars : env) {
-    		String key = vars.get("name");
-    		String value = vars.get("value");
-    		
-    		if(key == null || value == null ) continue;
-    			data.put(key, value);
     	}
     }
     

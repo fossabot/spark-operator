@@ -2,12 +2,12 @@ package com.stackable.spark.operator.cluster.crd;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
+import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.KubernetesResource;
 
 @JsonDeserialize(using = JsonDeserializer.None.class)
@@ -23,7 +23,7 @@ public abstract class SparkNode implements KubernetesResource {
 	private List<SparkSelector> selectors = new ArrayList<SparkSelector>();
 	private List<String> command = new ArrayList<String>();
 	private List<String> args = new ArrayList<String>();
-	private List<Map<String,String>> env = new ArrayList<Map<String,String>>();
+	private List<EnvVar> env = new ArrayList<EnvVar>();
 	
     public String getTypeName() {
 		return typeName;
@@ -89,11 +89,11 @@ public abstract class SparkNode implements KubernetesResource {
 		this.args = args;
 	}
 
-	public List<Map<String, String>> getEnv() {
+	public List<EnvVar> getEnv() {
 		return env;
 	}
 
-	public void setEnv(List<Map<String, String>> env) {
+	public void setEnv(List<EnvVar> env) {
 		this.env = env;
 	}
 

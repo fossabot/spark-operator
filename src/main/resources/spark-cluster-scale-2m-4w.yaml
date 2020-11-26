@@ -18,20 +18,24 @@ spec:
         value: "{{packageroot}}"
       - name: SPARK_CONF_DIR
         value: "{{configroot}}"
+      - name: SPARK_NO_DAEMONIZE
+        value: "1"
   worker:
     selectors:
       - selector: 
          matchLabels:
            kubernetes.io/hostname: "bawa-virtualbox"
-    instances: 4 
-    cpu: "2"
-    memory: "2G"
+    instances: 4
+    cpu: "1"
+    memory: "1G"
     command:
-      - "sbin/start-slave.sh"
+      - "sbin/start-slave.sh spark://bawa-virtualbox:7077"
     env:
       - name: SPARK_HOME
         value: "{{packageroot}}"
       - name: SPARK_CONF_DIR
         value: "{{configroot}}"
+      - name: SPARK_NO_DAEMONIZE
+        value: "1"
   image: "spark:3.0.1"
   metrics: false
