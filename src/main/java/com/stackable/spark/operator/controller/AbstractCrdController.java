@@ -39,13 +39,15 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
 		
 		this.crdLister = new Lister<>(crdSharedIndexInformer.getIndexer(), namespace);
 		
-		// register events handlers
+		// register events handler
 		registerCrdEventHandler();
 	}
 	
     protected abstract void onCrdAdd(CRDClass crd);
     protected abstract void onCrdUpdate(CRDClass crdOld, CRDClass crdNew);
     protected abstract void onCrdDelete(CRDClass crd, boolean deletedFinalStateUnknown);
+ 
+    protected abstract void start();
     
     protected void registerCrdEventHandler() {
         this.crdSharedIndexInformer.addEventHandler(new ResourceEventHandler<CRDClass>() {

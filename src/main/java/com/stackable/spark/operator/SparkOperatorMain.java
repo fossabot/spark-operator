@@ -62,11 +62,10 @@ public class SparkOperatorMain {
             informerFactory.addSharedInformerEventListener(
             	exception -> logger.fatal("Exception occurred, but caught. Missing CRD?\n" + exception));
 
-            sparkClusterController.run();
+            sparkClusterController.start();
         } catch (KubernetesClientException exception) {
             logger.fatal("Kubernetes Client Exception: " + exception.getMessage());
         }
     }
-    
 
 }

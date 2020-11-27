@@ -16,10 +16,10 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		
 		<fabric8.client.version>4.13.0</fabric8.client.version>
+		
+		<maven-assembly-compiler.version>3.8.0</maven-assembly-compiler.version>
 		<maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
-		<junit-jupiter-engine.version>5.6.2</junit-jupiter-engine.version>
 		<maven-surefire-plugin.version>3.0.0-M4</maven-surefire-plugin.version>
-		<jkube.version>1.0.1</jkube.version>
 		
 		<log4j.version>1.2.17</log4j.version>
 	</properties>
@@ -40,6 +40,14 @@
 
 	<build>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-assembly-compiler</artifactId>
+				<version>${maven-assembly-compiler.version}</version>
+				<configuration>
+					<release>11</release>
+				</configuration>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-assembly-plugin</artifactId>

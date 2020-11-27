@@ -14,6 +14,7 @@ import org.apache.log4j.Logger;
 
 import com.stackable.spark.operator.cluster.SparkCluster;
 import com.stackable.spark.operator.cluster.SparkClusterList;
+import com.stackable.spark.operator.cluster.SparkClusterState;
 import com.stackable.spark.operator.cluster.crd.SparkNode;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
@@ -54,12 +55,16 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 
     public static final Integer WORKING_QUEUE_SIZE	= 1024;
 
-    private BlockingQueue<String> workqueue;
+    private BlockingQueue<String> blockingQueue;
 
     private SharedIndexInformer<Pod> podInformer;
     private Lister<Pod> podLister;
     
-    public SparkClusterController(KubernetesClient client,
+    private SparkClusterState clusterState;
+    // pod name -> hostname
+    private Map<String,String> hostNameMap = new HashMap<String,String>();
+    
+	public SparkClusterController(KubernetesClient client,
     							  SharedInformerFactory informerFactory,
     							  CustomResourceDefinitionContext crdContext,
     							  String namespace,
@@ -69,21 +74,23 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
         this.podInformer = informerFactory.sharedIndexInformerFor(Pod.class, PodList.class, resyncCycle);
         this.podLister = new Lister<>(podInformer.getIndexer(), namespace);
 
-        this.workqueue = new ArrayBlockingQueue<>(WORKING_QUEUE_SIZE);
+        this.blockingQueue = new ArrayBlockingQueue<>(WORKING_QUEUE_SIZE);
+        
+        this.clusterState = SparkClusterState.INITIAL;
     }
 
 	@Override
-	protected void onCrdAdd(SparkCluster crd) {
-		enqueueSparkCluster(crd);
+	protected void onCrdAdd(SparkCluster cluster) {
+		enqueueSparkCluster(cluster);
 	}
 
 	@Override
-	protected void onCrdUpdate(SparkCluster crdOld, SparkCluster crdNew) {
-		enqueueSparkCluster(crdNew);
+	protected void onCrdUpdate(SparkCluster clusterOld, SparkCluster clusterNew) {
+		enqueueSparkCluster(clusterNew);
 	}
 
 	@Override
-	protected void onCrdDelete(SparkCluster crd, boolean deletedFinalStateUnknown) {
+	protected void onCrdDelete(SparkCluster cluster, boolean deletedFinalStateUnknown) {
 		// skip
 	}
 	
@@ -109,36 +116,33 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
         });
 	}
 
-    public void run() {
-        logger.info("Starting " + SparkClusterController.class.getName());
+    public void start() {
+        logger.info("Start listening...");
 
         // wait until informer has synchronized
-        while (!podInformer.hasSynced() || ! crdSharedIndexInformer.hasSynced()) {;}
+        while (!podInformer.hasSynced() || !crdSharedIndexInformer.hasSynced()) {;}
 
+        // loop for synchronization
         while (true) {
             try {
-                logger.info("Trying to fetch item from workqueue [# " + workqueue.size() + "]...");
-
-                String key = workqueue.take();
+                String key = blockingQueue.take();
                 Objects.requireNonNull(key, "Key can't be null");
-                logger.info(String.format("Got %s", key));
 
                 if (key.isEmpty() || (!key.contains("/"))) {
                     logger.warn(String.format("Invalid resource key: %s", key));
+                    continue;
                 }
 
                 // Get the SparkCluster resource's name from key which is in format namespace/name
                 String name = key.split("/")[1];
-                SparkCluster sparkCluster = crdLister.get(key.split("/")[1]);
+                SparkCluster cluster = crdLister.get(key.split("/")[1]);
 
-                if (sparkCluster == null) {
-                    logger.fatal(String.format("SparkCluster %s in workqueue no longer exists", name));
+                if (cluster == null) {
+                    logger.fatal(String.format("SparkCluster %s in blockingQueue no longer exists", name));
                     return;
                 }
 
-                // adapt master and workers
-                reconcile(sparkCluster, sparkCluster.getSpec().getMaster());
-                reconcile(sparkCluster, sparkCluster.getSpec().getWorker());
+                clusterState = clusterState.process(this, cluster);
             } catch (InterruptedException interruptedException) {
                 Thread.currentThread().interrupt();
                 logger.fatal("Controller interrupted...");
@@ -148,72 +152,76 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 
     /**
      * Reconcile the spark cluster. Compare current with desired state and adapt.
-     * @param sparkCluster specified spark cluster
+     * @param cluster specified spark cluster
      */
-    protected void reconcile(SparkCluster sparkCluster, SparkNode node) {
-        List<String> pods = podCountByName(sparkCluster, node);
-
-        if (pods.isEmpty()) {
-            createPods(node.getInstances(), sparkCluster, node);
-            return;
-        }
-
-        // TODO: comment to remove scheduler
-        int existingPods = pods.size();
-
-        // Compare with desired state (spec.master.node.instances)
-        // If less then create new pods
-        if (existingPods < node.getInstances()) {
-            createPods(node.getInstances() - existingPods, sparkCluster, node);
-        }
-
-        // If more then delete old pods
-        int diff = existingPods - node.getInstances();
-
-        for (; diff > 0; diff--) {
-        	// TODO: dont remove current master leader!
-            String podName = pods.remove(0);
-            client.pods()
-            	.inNamespace(sparkCluster.getMetadata().getNamespace())
-            	.withName(podName)
-            	.delete();
-        }
+    public void reconcile(SparkCluster cluster, SparkNode... nodes) {
+    	for(SparkNode node : nodes) {
+	        List<Pod> pods = getPodsByNode(cluster, node);
+	        logger.info(String.format("%s count: [%d / %d]", node.getTypeName(), pods.size(), node.getInstances()));
+	        
+	        if (pods.isEmpty()) {
+	            createPods(node.getInstances(), cluster, node);
+	            return;
+	        }
+	
+	        // TODO: comment to remove scheduler
+	        int existingPods = pods.size();
+	
+	        // Compare with desired state (spec.master.node.instances)
+	        // If less then create new pods
+	        if (existingPods < node.getInstances()) {
+	            createPods(node.getInstances() - existingPods, cluster, node);
+	        }
+	
+	        // If more then delete old pods
+	        int diff = existingPods - node.getInstances();
+	
+	        for (; diff > 0; diff--) {
+	        	// TODO: dont remove current master leader!
+	            Pod pod = pods.remove(0);
+	            logger.info("Deleting pod: " + pod.getMetadata().getName());
+	            client.pods()
+	            	.inNamespace(cluster.getMetadata().getNamespace())
+	            	.withName(pod.getMetadata().getName())
+	            	.delete();
+	        }
+    	}
     }
 
-    private String createPodName(SparkCluster sparkCluster, SparkNode node) {
-    	return sparkCluster.getMetadata().getName() + "-" + node.getTypeName() + "-";
+    private String createPodName(SparkCluster cluster, SparkNode node) {
+    	return cluster.getMetadata().getName() + "-" + node.getTypeName() + "-";
     }
 
-    private void createPods(int numberOfPods, SparkCluster sparkCluster, SparkNode node) {
+    public void createPods(int numberOfPods, SparkCluster cluster, SparkNode node) {
         for (int index = 0; index < numberOfPods; index++) {
-            Pod pod = createNewPod(sparkCluster, node);
-            Pod tmp = client.pods().inNamespace(sparkCluster.getMetadata().getNamespace()).create(pod);
+            Pod pod = createNewPod(cluster, node);
+            Pod tmp = client.pods().inNamespace(cluster.getMetadata().getNamespace()).create(pod);
             logger.info("Created Pod: " + tmp.getMetadata().getName());
         }
     }
-
-    private List<String> podCountByName(SparkCluster sparkCluster, SparkNode node) {
-        List<String> podNames = new ArrayList<>();
-        List<Pod> pods = podLister.list();
-        String nodeName = createPodName(sparkCluster, node);
-        
-        for (Pod pod : pods) {
-        	// filter for terminating pods
-        	if(pod.getMetadata().getDeletionTimestamp() != null) {
-        		logger.info("Found Terminating pod: " + pod.getMetadata().getName());
-        		continue;
-        	}
-        	// TODO: differentiate masters and workers
-        	if (pod.getMetadata().getName().contains(nodeName)) {
-                //if (pod.getStatus().getPhase().equals(POD_RUNNING) ||
-                //	pod.getStatus().getPhase().equals(POD_PENDING)) {
-                    podNames.add(pod.getMetadata().getName());
-                //}
-            }
-        }
-
-        logger.info(String.format("%s count: %d -> spec: %d", nodeName, podNames.size(), node.getInstances()));
-        return podNames;
+    
+    public List<Pod> getPodsByNode(SparkCluster cluster, SparkNode... nodes) {
+        List<Pod> podList = new ArrayList<>();
+    	
+    	for(SparkNode node : nodes) {
+	        String nodeName = createPodName(cluster, node);
+	        
+	        for (Pod pod : podLister.list()) {
+	        	// filter for terminating pods
+	        	if(pod.getMetadata().getDeletionTimestamp() != null) {
+	        		//logger.info("Found Terminating pod: " + pod.getMetadata().getName());
+	        		continue;
+	        	}
+	        	// TODO: differentiate masters and workers
+	        	if (pod.getMetadata().getName().contains(nodeName)) {
+	                //if (pod.getStatus().getPhase().equals(POD_RUNNING) || pod.getStatus().getPhase().equals(POD_PENDING)) {
+	                	//logger.info("Found Running/Pending pod: " + pod.getMetadata().getName());
+	                    podList.add(pod);
+	                //}
+	            }
+	        }
+    	}
+        return podList;
     }
 
 	private Pod createNewPod(SparkCluster cluster, SparkNode node) {
@@ -263,11 +271,10 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
                 .build();
     }
     
-    private void enqueueSparkCluster(SparkCluster sparkCluster) {
-        String key = Cache.metaNamespaceKeyFunc(sparkCluster);
+    private void enqueueSparkCluster(SparkCluster cluster) {
+        String key = Cache.metaNamespaceKeyFunc(cluster);
         if (key != null && !key.isEmpty()) {
-            logger.info("Adding item to workqueue[" + workqueue.size() + "]: " + key);
-            workqueue.add(key);
+            blockingQueue.add(key);
         }
     }
 
@@ -279,24 +286,20 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
             return;
         }
         
-        SparkCluster sparkCluster = crdLister.get(ownerReference.getName());
+        SparkCluster cluster = crdLister.get(ownerReference.getName());
         
-        if (sparkCluster != null) {
-        	// check if node name is set
-        	if(pod.getSpec().getNodeName() != null && !pod.getSpec().getNodeName().isEmpty()) {
-        		logger.info("Received nodeName: " + pod.getSpec().getNodeName() + " for pod: " + pod.getMetadata().getName());
-        		// check for master
-        		//if(pod.getMetadata().getGenerateName().contains(SparkNodeMaster.POD_TYPE)) {
-            		// build config map
-        			logger.info("Create config map for: " + pod.getSpec().getNodeName());
-        			createConfigMap(sparkCluster, pod);        			
-        		//}
-        	}
-        	
-        	enqueueSparkCluster(sparkCluster);
+        if (cluster == null) {
+        	return;
         }
-    }
+        
+    	enqueueSparkCluster(cluster);
+	}
 
+    /**
+     * Return the owner reference of that specific pod if available
+     * @param pod - fabric8 Pod
+     * @return pod owner reference
+     */
     private OwnerReference getControllerOf(Pod pod) {
         List<OwnerReference> ownerReferences = pod.getMetadata().getOwnerReferences();
         for (OwnerReference ownerReference : ownerReferences) {
@@ -307,7 +310,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
         return null;
     }
     
-    private void createConfigMap(SparkCluster cluster, Pod pod) {
+    public void createConfigMap(SparkCluster cluster, Pod pod) {
     	String cmName = pod.getMetadata().getGenerateName() + "cm";
     	
         Resource<ConfigMap,DoneableConfigMap> configMapResource = client
@@ -317,7 +320,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 
         // create cm entry 
         Map<String,String> data = new HashMap<String,String>();
-        addToConfig(data, "SPARK_MASTER_HOST", pod.getSpec().getNodeName());
+        //addToConfig(data, "SPARK_MASTER_HOST", pod.getSpec().getNodeName());
         
         StringBuffer sb = new StringBuffer();
         for( Entry<String,String> entry : data.entrySet()) {
@@ -341,4 +344,12 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
     	}
     }
 
+    public Map<String, String> getHostNameMap() {
+		return hostNameMap;
+	}
+
+    public void addToHostMap(String podName, String hostName) {
+    	hostNameMap.put(podName, hostName);
+    }
+    
 }
