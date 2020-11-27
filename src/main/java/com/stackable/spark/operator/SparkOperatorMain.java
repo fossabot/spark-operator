@@ -22,7 +22,7 @@ public class SparkOperatorMain {
 	final static Logger logger = Logger.getLogger(SparkOperatorMain.class);
 
 	// 10 seconds
-    public static long RESYNC_CYCLE = 30 * 1000L;
+    public static long RESYNC_CYCLE = 10 * 1000L;
 
     public static void main(String args[]) throws FileNotFoundException {
         try (KubernetesClient client = new DefaultKubernetesClient()) {

@@ -6,6 +6,7 @@ import org.apache.log4j.Logger;
 
 import com.stackable.spark.operator.controller.SparkClusterController;
 
+import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.Pod;
 
 public enum SparkClusterState {
@@ -15,7 +16,7 @@ public enum SparkClusterState {
     INITIAL("INITIAL") {
         @Override
 		public SparkClusterState process(SparkClusterController controller, SparkCluster cluster) {
-        	logger.info("STATE -> " + INITIAL.toString());
+        	logger.info("STATE ==> " + INITIAL.toString());
 
         	// reset hostMap
         	controller.getHostNameMap().clear();
@@ -37,12 +38,12 @@ public enum SparkClusterState {
     /**
      * WAIT_FOR_MASTER_HOST: 
      * after master is created, wait for agent to set the dedicated hostname and use for workers 
-     * -> create config map
+     * ==> create config map
      */
     WAIT_FOR_MASTER_HOST_NAME("WAIT_FOR_MASTER_HOST_NAME") {
         @Override
         public SparkClusterState process(SparkClusterController controller, SparkCluster cluster) {
-        	logger.info("STATE -> " + WAIT_FOR_MASTER_HOST_NAME.toString());
+        	logger.info("STATE ==> " + WAIT_FOR_MASTER_HOST_NAME.toString());
             
         	List<Pod> masterPods = controller.getPodsByNode(cluster, cluster.getSpec().getMaster());
         	// any masters?
@@ -59,8 +60,7 @@ public enum SparkClusterState {
     		logger.info("Received hostname: " + nodeName  + " for pod: " + masterPods.get(0).getMetadata().getName());
     		// save host name for workers
     		controller.addToHostMap(masterPods.get(0).getMetadata().getName(), nodeName);
-    			
-    		// TODO: create config map
+    		// create configmap
     		controller.createConfigMap(cluster, masterPods.get(0));
     		
    			return WAIT_FOR_MASTER_READY;
@@ -74,7 +74,7 @@ public enum SparkClusterState {
     WAIT_FOR_MASTER_READY("WAIT_FOR_MASTER_READY") {
         @Override
         public SparkClusterState process(SparkClusterController controller, SparkCluster cluster) {
-        	logger.info("STATE -> " + WAIT_FOR_MASTER_READY.toString());
+        	logger.info("STATE ==> " + WAIT_FOR_MASTER_READY.toString());
         	
         	List<Pod> masterPods = controller.getPodsByNode(cluster, cluster.getSpec().getMaster());
         	// any masters?
@@ -82,11 +82,18 @@ public enum SparkClusterState {
         		return INITIAL;
         	}
         	
-        	if(masterPods.get(0).getStatus().getPhase().equals("Running")) {
-        		return CREATE_SPARK_WORKER;
+    		boolean allRunning = true;
+        	for(Pod master : masterPods) {
+        		if(!master.getStatus().getPhase().equals("Running")) {
+        			allRunning = false;
+        		}
         	}
         	
-            return this;
+        	if(allRunning == false) {
+        		return this;
+        	}
+        	
+            return CREATE_SPARK_WORKER;
         }
 
     },
@@ -94,7 +101,7 @@ public enum SparkClusterState {
     CREATE_SPARK_WORKER("CREATE_SPARK_WORKER") {
         @Override
         public SparkClusterState process(SparkClusterController controller, SparkCluster cluster) {
-        	logger.info("STATE -> " + CREATE_SPARK_WORKER.toString());
+        	logger.info("STATE ==> " + CREATE_SPARK_WORKER.toString());
         	
         	List<Pod> masterPods = controller.getPodsByNode(cluster, cluster.getSpec().getMaster());
         	// any masters?
@@ -106,11 +113,23 @@ public enum SparkClusterState {
         	if( masterHostName == null || masterHostName.isEmpty()) {
         		return WAIT_FOR_MASTER_HOST_NAME;
         	}
+        	// TODO: copy cpu, memory etc to env variables
+        	controller.addNodeConfToEnvVariables(cluster.getSpec().getWorker());
         	// adapt command in workers
         	List<String> commands = cluster.getSpec().getWorker().getCommand();
         	// TODO: start-worker.sh? - adapt port
         	if(commands.size() == 1) {
-        		commands.add("spark://" + masterHostName + ":7077");
+        		String port = "7077";
+        		// if different port in env
+        		for(EnvVar var : cluster.getSpec().getWorker().getEnv() ) {
+        			if(var.getName().equals("SPARK_MASTER_PORT")) {
+        				port = var.getValue();
+        			}
+        		}
+        		
+        		String masterUrl = "spark://" + masterHostName + ":" + port;
+        		commands.add(masterUrl);
+        		logger.info("Set worker MASTER_URL to: " + masterUrl);
         	}
         	
         	// spin up workers
@@ -122,31 +141,45 @@ public enum SparkClusterState {
     WAIT_FOR_WORKERS_READY("WAIT_FOR_WORKERS_READY") {
 		@Override
 		public SparkClusterState process(SparkClusterController controller, SparkCluster cluster) {
-			logger.info("STATE -> " + RECONCILE_CLUSTER.toString());
+			logger.info("STATE ==> " + WAIT_FOR_WORKERS_READY.toString());
 			
         	List<Pod> workerPods = controller.getPodsByNode(cluster, cluster.getSpec().getWorker());
-        	// any workers?
+        	// any masters?
         	if(workerPods.size() == 0) {
         		return CREATE_SPARK_WORKER;
         	}
-        	
-        	if(workerPods.size() < cluster.getSpec().getWorker().getInstances()) {
-        		return this;
+
+    		boolean allRunning = true;
+        	for(Pod worker : workerPods) {
+        		if(!worker.getStatus().getPhase().equals("Running")) {
+        			allRunning = false;
+        		}
         	}
         	
-        	// create worker cm
-    		controller.createConfigMap(cluster, workerPods.get(0));
-			
-			return RECONCILE_CLUSTER;
+        	if(allRunning == false) {
+        		return this;
+        	}
+			// all running continue
+			return RECONCILE_MASTER;
 		}
     },
     
-    RECONCILE_CLUSTER("RECONCILE_CLUSTER") {
+    RECONCILE_MASTER("RECONCILE_MASTER") {
 		@Override
 		public SparkClusterState process(SparkClusterController controller, SparkCluster cluster) {
-			logger.info("STATE -> " + RECONCILE_CLUSTER.toString());
-			controller.reconcile(cluster, cluster.getSpec().getMaster(), cluster.getSpec().getWorker());
-			return RECONCILE_CLUSTER;
+			logger.info("STATE ==> " + RECONCILE_MASTER.toString());
+			// scale and keep alive
+			controller.reconcile(cluster, cluster.getSpec().getMaster());
+			return RECONCILE_WORKER;
+		}
+    },
+    
+    RECONCILE_WORKER("RECONCILE_WORKER") {
+		@Override
+		public SparkClusterState process(SparkClusterController controller, SparkCluster cluster) {
+			logger.info("STATE ==> " + RECONCILE_WORKER.toString());
+			// scale and keep alive
+			return controller.reconcile(cluster, cluster.getSpec().getWorker());
 		}
     };
 	

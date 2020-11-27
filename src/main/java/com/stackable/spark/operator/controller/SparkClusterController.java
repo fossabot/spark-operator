@@ -16,12 +16,14 @@ import com.stackable.spark.operator.cluster.SparkCluster;
 import com.stackable.spark.operator.cluster.SparkClusterList;
 import com.stackable.spark.operator.cluster.SparkClusterState;
 import com.stackable.spark.operator.cluster.crd.SparkNode;
+import com.stackable.spark.operator.cluster.crd.SparkNodeMaster;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 import io.fabric8.kubernetes.api.model.ConfigMapVolumeSource;
 import io.fabric8.kubernetes.api.model.ConfigMapVolumeSourceBuilder;
 import io.fabric8.kubernetes.api.model.DoneableConfigMap;
+import io.fabric8.kubernetes.api.model.EnvVarBuilder;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
@@ -154,26 +156,26 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
      * Reconcile the spark cluster. Compare current with desired state and adapt.
      * @param cluster specified spark cluster
      */
-    public void reconcile(SparkCluster cluster, SparkNode... nodes) {
-    	for(SparkNode node : nodes) {
-	        List<Pod> pods = getPodsByNode(cluster, node);
-	        logger.info(String.format("%s count: [%d / %d]", node.getTypeName(), pods.size(), node.getInstances()));
-	        
-	        if (pods.isEmpty()) {
-	            createPods(node.getInstances(), cluster, node);
-	            return;
-	        }
-	
-	        // TODO: comment to remove scheduler
-	        int existingPods = pods.size();
-	
-	        // Compare with desired state (spec.master.node.instances)
-	        // If less then create new pods
-	        if (existingPods < node.getInstances()) {
-	            createPods(node.getInstances() - existingPods, cluster, node);
-	        }
-	
-	        // If more then delete old pods
+    public SparkClusterState reconcile(SparkCluster cluster, SparkNode node) {
+        List<Pod> pods = getPodsByNode(cluster, node);
+        logger.info(String.format("%s [%d / %d]", node.getTypeName(), pods.size(), node.getInstances()));
+        
+        if (pods.isEmpty()) {
+            createPods(node.getInstances(), cluster, node);
+            return SparkClusterState.INITIAL;
+        }
+
+        // TODO: comment to remove scheduler
+        int existingPods = pods.size();
+
+        // Compare with desired state (spec.master.node.instances)
+        // If less then create new pods
+        if (existingPods < node.getInstances()) {
+            createPods(node.getInstances() - existingPods, cluster, node);
+            return SparkClusterState.WAIT_FOR_MASTER_HOST_NAME;
+        }
+        else {
+	        // If more pods than spec delete old pods
 	        int diff = existingPods - node.getInstances();
 	
 	        for (; diff > 0; diff--) {
@@ -185,7 +187,12 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 	            	.withName(pod.getMetadata().getName())
 	            	.delete();
 	        }
-    	}
+	        // alternate master worker
+	        SparkClusterState ret = node.getTypeName().equals(SparkNodeMaster.POD_TYPE) ? 
+	        		SparkClusterState.RECONCILE_WORKER : SparkClusterState.RECONCILE_MASTER;
+	        
+	        return ret;
+        }
     }
 
     private String createPodName(SparkCluster cluster, SparkNode node) {
@@ -338,11 +345,20 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
             .build());
     }
     
-    private void addToConfig(Map<String,String> data, String key, String value) {
-    	if(value != null && !value.isEmpty() ) { 
-    		data.put(key, value);
+    public void addNodeConfToEnvVariables(SparkNode node) {
+    	if(node.getCpu() != null && !node.getCpu().isEmpty()) {
+    		node.getEnv().add(new EnvVarBuilder().withName("SPARK_WORKER_CORES").withValue(node.getCpu()).build());
+    	}
+    	if(node.getMemory() != null && !node.getMemory().isEmpty()) {
+    		node.getEnv().add(new EnvVarBuilder().withName("SPARK_WORKER_MEMORY").withValue(node.getMemory()).build());
     	}
     }
+    
+    //private void addToConfig(Map<String,String> data, String key, String value) {
+    //	if(value != null && !value.isEmpty() ) { 
+    //		data.put(key, value);
+    //	}
+    //}
 
     public Map<String, String> getHostNameMap() {
 		return hostNameMap;

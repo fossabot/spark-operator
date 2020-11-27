@@ -9,8 +9,6 @@ spec:
          matchLabels:
            kubernetes.io/hostname: "bawa-virtualbox"
     instances: 1
-    cpu: "1"
-    memory: "500m"
     command:
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-master.sh"
     env:
@@ -18,6 +16,8 @@ spec:
 #        value: "{{packageroot}}/spark-3.0.1-bin-hadoop2.7"
 #      - name: SPARK_CONF_DIR
 #        value: "{{configroot}}"
+      - name: "SPARK_MASTER_PORT"
+        value: "9876"
       - name: "SPARK_NO_DAEMONIZE"
         value: "true"
   worker:
@@ -25,10 +25,15 @@ spec:
       - selector: 
          matchLabels:
            kubernetes.io/hostname: "bawa-virtualbox"
+    # customize here if needed
     instances: 2 
+    # no cpu defaults to take all
     cpu: "1"
+    # no memory defaults to take all
     memory: "1000m"
+    # end of customization
     command:
+
       # hostname and port provided from operator: start-slave.sh <MASTER_URL:MASTER_PORT>
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-slave.sh"
     env:
@@ -36,6 +41,8 @@ spec:
 #        value: "{{packageroot}}/spark-3.0.1-bin-hadoop2.7"
 #      - name: SPARK_CONF_DIR
 #        value: "{{configroot}}"
+      - name: "SPARK_MASTER_PORT"
+        value: "9876"
       - name: "SPARK_NO_DAEMONIZE"
         value: "true"
   image: "spark:3.0.1"
