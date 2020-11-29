@@ -16,6 +16,8 @@ spec:
 #        value: "{{packageroot}}/spark-3.0.1-bin-hadoop2.7"
 #      - name: SPARK_CONF_DIR
 #        value: "{{configroot}}"
+      - name: "SPARK_MASTER_PORT"
+        value: "9876"
       - name: "SPARK_NO_DAEMONIZE"
         value: "true"
   worker:
@@ -39,6 +41,8 @@ spec:
 #        value: "{{packageroot}}/spark-3.0.1-bin-hadoop2.7"
 #      - name: SPARK_CONF_DIR
 #        value: "{{configroot}}"
+      - name: "SPARK_MASTER_PORT"
+        value: "9876"
       - name: "SPARK_NO_DAEMONIZE"
         value: "true"
   image: "spark:3.0.1"

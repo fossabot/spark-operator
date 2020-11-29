@@ -4,7 +4,6 @@ import java.io.FileNotFoundException;
 
 import org.apache.log4j.Logger;
 
-import com.stackable.spark.operator.common.SparkResourceCreator;
 import com.stackable.spark.operator.controller.SparkClusterController;
 
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
@@ -22,7 +21,7 @@ public class SparkOperatorMain {
 	final static Logger logger = Logger.getLogger(SparkOperatorMain.class);
 
 	// 10 seconds
-    public static long RESYNC_CYCLE = 10 * 1000L;
+    public static long RESYNC_CYCLE = 5 * 1000L;
 
     public static void main(String args[]) throws FileNotFoundException {
         try (KubernetesClient client = new DefaultKubernetesClient()) {
@@ -33,14 +32,6 @@ public class SparkOperatorMain {
             }
 
             logger.info("Using namespace: " + namespace);
-            
-            // initialize CRDs for each controller
-            String sparkClusterCRD = "spark-cluster-crd.yaml";
-            SparkResourceCreator.createOrReplaceCRD(client, namespace, sparkClusterCRD);
-            logger.info("/" + namespace + "/" + sparkClusterCRD +" created or replaced");
-            String sparkApplicationCRD = "spark-application-crd.yaml";
-            SparkResourceCreator.createOrReplaceCRD(client, namespace, sparkApplicationCRD);
-            logger.info("/" + namespace + "/" + sparkApplicationCRD +" created or replaced");
             
             SharedInformerFactory informerFactory = client.informers();
 
@@ -54,10 +45,8 @@ public class SparkOperatorMain {
                     .build();
             
             SparkClusterController sparkClusterController =
-            	new SparkClusterController(client, informerFactory, crdContext, namespace, RESYNC_CYCLE);
+            	new SparkClusterController(client, informerFactory, crdContext, namespace, "spark-cluster-crd.yaml", RESYNC_CYCLE);
 
-            sparkClusterController.registerOtherEventHandler();
-            
             informerFactory.startAllRegisteredInformers();
             informerFactory.addSharedInformerEventListener(
             	exception -> logger.fatal("Exception occurred, but caught. Missing CRD?\n" + exception));
