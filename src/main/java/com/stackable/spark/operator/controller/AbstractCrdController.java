@@ -140,7 +140,7 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
     
     /**
      * Add elements / events to the blocking queue
-     * @param crd - your crd class
+     * @param crd - your CRD class
      */
     protected void enqueueCrd(CRDClass crd) {
         String key = Cache.metaNamespaceKeyFunc(crd);
@@ -152,7 +152,7 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
     /**
      * Create or replace the CRD in the API Server
      * @param namespace - given namespace
-     * @param path - path to the crd yaml file
+     * @param path - path to the CRD yaml file
      * @return
      */
     protected List<HasMetadata> createOrReplaceCRD(String namespace, String path) {
