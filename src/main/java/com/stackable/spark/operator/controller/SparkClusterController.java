@@ -11,6 +11,7 @@ import java.util.Objects;
 import org.apache.log4j.Logger;
 
 import com.stackable.spark.operator.cluster.SparkCluster;
+import com.stackable.spark.operator.cluster.SparkClusterDoneable;
 import com.stackable.spark.operator.cluster.SparkClusterList;
 import com.stackable.spark.operator.cluster.SparkClusterState;
 import com.stackable.spark.operator.cluster.crd.SparkNode;
@@ -38,17 +39,14 @@ import io.fabric8.kubernetes.client.informers.SharedInformerFactory;
 import io.fabric8.kubernetes.client.informers.cache.Lister;
 
 /**
- * Mirroring ReplicaSet from Kubernetes API for master and worker
- * 
+ * The SparkClusterController is responsible for installing the spark master and workers.
+ * Scale up and down to the instances required in the specification.
  */
-public class SparkClusterController extends AbstractCrdController<SparkCluster, SparkClusterList>{
+public class SparkClusterController extends AbstractCrdController<SparkCluster, SparkClusterList, SparkClusterDoneable> {
+	
     public static final Logger logger = Logger.getLogger(SparkClusterController.class.getName());
 
     public static final String SPARK_CLUSTER_KIND 	= "SparkCluster";
-
-    public static final String POD_RUNNING 			= "Running";
-    public static final String POD_PENDING 			= "Pending";
-
     public static final String APP_LABEL 			= "cluster";
 
     private SharedIndexInformer<Pod> podInformer;
@@ -61,23 +59,32 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 	public SparkClusterController(
 		KubernetesClient client,
 		SharedInformerFactory informerFactory,
-		CustomResourceDefinitionContext crdContext,
 		String namespace,
 		String crdPath,
 		Long resyncCycle) {
 
-		super(client, informerFactory, crdContext, namespace, crdPath, resyncCycle);
+		super(client, informerFactory, namespace, crdPath, resyncCycle);
 		
         this.podInformer = informerFactory.sharedIndexInformerFor(Pod.class, PodList.class, resyncCycle);
         this.podLister = new Lister<>(podInformer.getIndexer(), namespace);
 
-        // INITIAL will be required for leader election etc
-        //this.clusterState = SparkClusterState.INITIAL;
-        this.clusterState = SparkClusterState.CREATE_SPARK_MASTER;
+        this.clusterState = SparkClusterState.INITIAL;
         // register pods
         registerPodEventHandler();
     }
 	
+    protected CustomResourceDefinitionContext getCrdContext() {
+        return new CustomResourceDefinitionContext.Builder()
+            .withVersion("v1")
+            .withScope("Namespaced")
+            .withGroup("spark.stackable.de")
+            .withPlural("sparkclusters")
+            .build();
+    }
+	
+	/**
+	 * Register event handler for kubernetes pods
+	 */
 	private void registerPodEventHandler() {
 		podInformer.addEventHandler(new ResourceEventHandler<Pod>() {
             @Override
@@ -97,15 +104,23 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 	}
 
 	@Override
-	protected void process(AbstractCrdController<SparkCluster,SparkClusterList> controller, SparkCluster cluster) {
+	protected void process(AbstractCrdController<SparkCluster,SparkClusterList,SparkClusterDoneable> controller, SparkCluster cluster) {
 		clusterState = clusterState.process(this, cluster);
 	}
 	
 	@Override
 	protected void waitForAllInformersSynced() {
 		while (!crdSharedIndexInformer.hasSynced() || !podInformer.hasSynced());
+		logger.info("SparkCluster informer and pod informer initialized ... waiting for changes");
 	}
     
+	/**
+	 * Create pods with regard to spec and current state
+	 * @param pods - list of available pods belonging to the given node
+	 * @param cluster - current spark cluster
+	 * @param node - master or worker node
+	 * @return list of created pods
+	 */
     public List<Pod> createPods(List<Pod> pods, SparkCluster cluster, SparkNode node) {
     	List<Pod> createdPods = new ArrayList<Pod>();
         // Compare with desired state (spec.master.node.instances)
@@ -114,12 +129,18 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
             for (int index = 0; index < node.getInstances() - pods.size(); index++) {
                 Pod pod = client.pods().inNamespace(cluster.getMetadata().getNamespace()).create(createNewPod(cluster, node));
                 createdPods.add(pod);
-                logger.info("Created " + node.getPodTypeName() + " pod: " + pod.getMetadata().getName());
             }
         }
         return createdPods;
     }
     
+	/**
+	 * Delete pods with regard to spec and current state
+	 * @param pods - list of available pods belonging to the given node
+	 * @param cluster - current spark cluster
+	 * @param node - master or worker node
+	 * @return list of deleted pods
+	 */
     public List<Pod> deletePods(List<Pod> pods, SparkCluster cluster, SparkNode node) {
     	List<Pod> deletedPods = new ArrayList<Pod>();
         // If more pods than spec delete old pods
@@ -133,11 +154,16 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
             	.withName(pod.getMetadata().getName())
             	.delete();
             deletedPods.add(pod);
-            logger.info("Deleted " + node.getPodTypeName() + " pod: " + pod.getMetadata().getName());
         }
         return deletedPods;
     }
     
+    /**
+     * Return number of pods for given nodes - Terminating is excluded
+     * @param cluster - current spark cluster
+     * @param nodes - master or worker node
+     * @return list of pods belonging to the given node
+     */
     public List<Pod> getPodsByNode(SparkCluster cluster, SparkNode... nodes) {
         List<Pod> podList = new ArrayList<>();
     	
@@ -158,57 +184,20 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
         return podList;
     }
     
+    /**
+     * Create pod name schema
+     * @param cluster - current spark cluster
+     * @param node - master or worker node
+     * @return pod name
+     */
     private String createPodName(SparkCluster cluster, SparkNode node) {
     	return cluster.getMetadata().getName() + "-" + node.getPodTypeName() + "-";
     }
 
-	private Pod createNewPod(SparkCluster cluster, SparkNode node) {
-		// TODO: replace hardcoded
-		String cmName = createPodName(cluster, node) + "cm";
-		ConfigMapVolumeSource cms = new ConfigMapVolumeSourceBuilder().withName(cmName).build();
-		Volume vol = new VolumeBuilder().withName(cmName).withConfigMap(cms).build();
-		List<Toleration> tolerations = new ArrayList<Toleration>();
-		tolerations.add( new TolerationBuilder().withNewEffect("NoSchedule").withKey("kubernetes.io/arch").withOperator("Equal").withValue("stackable-linux").build());
-		tolerations.add( new TolerationBuilder().withNewEffect("NoExecute").withKey("kubernetes.io/arch").withOperator("Equal").withValue("stackable-linux").build());
-		tolerations.add( new TolerationBuilder().withNewEffect("NoExecute").withKey("node.kubernetes.io/not-ready").withOperator("Exists").withTolerationSeconds(300L).build());
-		tolerations.add( new TolerationBuilder().withNewEffect("NoSchedule").withKey("node.kubernetes.io/unreachable").withOperator("Exists").build());
-		tolerations.add( new TolerationBuilder().withNewEffect("NoExecute").withKey("node.kubernetes.io/unreachable").withOperator("Exists").withTolerationSeconds(300L).build());
-
-        return new PodBuilder()
-                .withNewMetadata()
-                  .withGenerateName(createPodName(cluster, node))
-                  .withNamespace(cluster.getMetadata().getNamespace())
-                  .withLabels(Collections.singletonMap(APP_LABEL, cluster.getMetadata().getName()))
-                  .addNewOwnerReference()
-                  .withController(true)
-                  .withKind(cluster.getKind())
-                  .withApiVersion(cluster.getApiVersion())
-                  .withName(cluster.getMetadata().getName())
-                  .withNewUid(cluster.getMetadata().getUid())
-                  .endOwnerReference()
-                .endMetadata()
-                .withNewSpec()
-                .withTolerations(tolerations)
-                // TODO: check for null / zero elements
-                .withNodeSelector(node.getSelectors().get(0).getSelector().getMatchLabels())
-                .withVolumes(vol)
-                .addNewContainer()
-                	//TODO: no ":" etc in withName
-	            	.withName("spark3")
-	            	.withImage(cluster.getSpec().getImage())
-	            	.withCommand(node.getCommand())
-	            	.withArgs(node.getArgs())
-	                .addNewVolumeMount()
-	                	// TODO: replace hardcoded
-	                  	.withMountPath("conf")
-	                  	.withName(cmName)
-	                .endVolumeMount()
-	                .withEnv(node.getEnv())
-                .endContainer()
-                .endSpec()
-                .build();
-    }
-    
+    /**
+     * Check incoming pods for owner reference spark cluster and add to blocking queue
+     * @param pod - kubernetes pod
+     */
     private void handlePodObject(Pod pod) {
         OwnerReference ownerReference = getControllerOf(pod);
         Objects.requireNonNull(ownerReference);
@@ -269,6 +258,53 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
             .build());
     }
     
+	private Pod createNewPod(SparkCluster cluster, SparkNode node) {
+		// TODO: replace hardcoded
+		String cmName = createPodName(cluster, node) + "cm";
+		ConfigMapVolumeSource cms = new ConfigMapVolumeSourceBuilder().withName(cmName).build();
+		Volume vol = new VolumeBuilder().withName(cmName).withConfigMap(cms).build();
+		List<Toleration> tolerations = new ArrayList<Toleration>();
+		tolerations.add( new TolerationBuilder().withNewEffect("NoSchedule").withKey("kubernetes.io/arch").withOperator("Equal").withValue("stackable-linux").build());
+		tolerations.add( new TolerationBuilder().withNewEffect("NoExecute").withKey("kubernetes.io/arch").withOperator("Equal").withValue("stackable-linux").build());
+		tolerations.add( new TolerationBuilder().withNewEffect("NoExecute").withKey("node.kubernetes.io/not-ready").withOperator("Exists").withTolerationSeconds(300L).build());
+		tolerations.add( new TolerationBuilder().withNewEffect("NoSchedule").withKey("node.kubernetes.io/unreachable").withOperator("Exists").build());
+		tolerations.add( new TolerationBuilder().withNewEffect("NoExecute").withKey("node.kubernetes.io/unreachable").withOperator("Exists").withTolerationSeconds(300L).build());
+
+        return new PodBuilder()
+                .withNewMetadata()
+                  .withGenerateName(createPodName(cluster, node))
+                  .withNamespace(cluster.getMetadata().getNamespace())
+                  .withLabels(Collections.singletonMap(APP_LABEL, cluster.getMetadata().getName()))
+                  .addNewOwnerReference()
+                  .withController(true)
+                  .withKind(cluster.getKind())
+                  .withApiVersion(cluster.getApiVersion())
+                  .withName(cluster.getMetadata().getName())
+                  .withNewUid(cluster.getMetadata().getUid())
+                  .endOwnerReference()
+                .endMetadata()
+                .withNewSpec()
+                .withTolerations(tolerations)
+                // TODO: check for null / zero elements
+                .withNodeSelector(node.getSelectors().get(0).getSelector().getMatchLabels())
+                .withVolumes(vol)
+                .addNewContainer()
+                	//TODO: no ":" etc in withName
+	            	.withName("spark3")
+	            	.withImage(cluster.getSpec().getImage())
+	            	.withCommand(node.getCommand())
+	            	.withArgs(node.getArgs())
+	                .addNewVolumeMount()
+	                	// TODO: replace hardcoded
+	                  	.withMountPath("conf")
+	                  	.withName(cmName)
+	                .endVolumeMount()
+	                .withEnv(node.getEnv())
+                .endContainer()
+                .endSpec()
+                .build();
+    }
+    
     public void addNodeConfToEnvVariables(SparkNode node) {
     	if(node.getCpu() != null && !node.getCpu().isEmpty()) {
     		node.getEnv().add(new EnvVarBuilder().withName("SPARK_WORKER_CORES").withValue(node.getCpu()).build());
@@ -285,5 +321,5 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
     public void addToHostMap(String podName, String hostName) {
     	hostNameMap.put(podName, hostName);
     }
-
+    
 }

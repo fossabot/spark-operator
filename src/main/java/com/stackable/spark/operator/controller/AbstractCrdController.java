@@ -9,8 +9,11 @@ import java.util.concurrent.BlockingQueue;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.client.CustomResource;
+import io.fabric8.kubernetes.client.CustomResourceDoneable;
 import io.fabric8.kubernetes.client.CustomResourceList;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.dsl.MixedOperation;
+import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.dsl.base.CustomResourceDefinitionContext;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
@@ -25,7 +28,9 @@ import io.fabric8.kubernetes.client.informers.cache.Lister;
  * @param <CRDClassList>
  */
 public abstract class AbstractCrdController<CRDClass extends CustomResource, 
-											CRDClassList extends CustomResourceList<CRDClass>> {
+											CRDClassList extends CustomResourceList<CRDClass>,
+											CRDClassDoneable extends CustomResourceDoneable<CRDClass>>
+											implements Runnable {
 	
     public static final Integer WORKING_QUEUE_SIZE	= 1024;
 	
@@ -37,13 +42,14 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
 	protected SharedIndexInformer<CRDClass> crdSharedIndexInformer;
 	protected Lister<CRDClass> crdLister;
 	
+    protected MixedOperation<CRDClass,CRDClassList,CRDClassDoneable,Resource<CRDClass, CRDClassDoneable>> crdClient; 
+	
 	protected String crdPath;
 	
 	@SuppressWarnings("unchecked")
 	public AbstractCrdController(
 		KubernetesClient client,
 		SharedInformerFactory informerFactory,
-		CustomResourceDefinitionContext crdContext,
 		String namespace,
 		String crdPath,
 		Long resyncCycle) {
@@ -53,13 +59,20 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
         this.blockingQueue = new ArrayBlockingQueue<>(WORKING_QUEUE_SIZE);
 
 		this.crdSharedIndexInformer = informerFactory.sharedIndexInformerForCustomResource(
-			crdContext, 
+			getCrdContext(), 
         	(Class<CRDClass>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0], 
         	(Class<CRDClassList>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[1], 
         	resyncCycle
         ); 
 		
 		this.crdLister = new Lister<>(crdSharedIndexInformer.getIndexer(), namespace);
+		
+		this.crdClient = client.customResources(
+			getCrdContext(),
+	        (Class<CRDClass>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0], 
+	        (Class<CRDClassList>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[1],
+	        (Class<CRDClassDoneable>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[2]
+		); 
 		
         // initialize CRD -> should be one for each controller
         createOrReplaceCRD(namespace, crdPath);
@@ -69,11 +82,17 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
 	}
 	
 	/**
+	 * Provide CRD context for the required sharedIndexInformer
+	 * @return CRD context
+	 */
+	protected abstract CustomResourceDefinitionContext getCrdContext();
+	
+	/**
 	 * Overwrite method to specify what should be done after the blocking queue has elements
 	 * @param controller - controller class extending AbstractCrdController
 	 * @param crd - specified CRD resource class for that controller
 	 */
-    protected abstract void process(AbstractCrdController<CRDClass,CRDClassList> controller, CRDClass crd);
+    protected abstract void process(AbstractCrdController<CRDClass,CRDClassList,CRDClassDoneable> controller, CRDClass crd);
  
     /**
      * Overwrite method to add more informers to be synced (e.g. pods)
@@ -85,7 +104,7 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
     /**
      * Waits until all informers are synced and waits for elements to be in the queue and runs process()
      */
-    public void start() {
+    public void run() {
         // wait until informers have synchronized
         waitForAllInformersSynced();
         // loop for synchronization
@@ -119,7 +138,9 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
     	enqueueCrd(crdNew);
     }
     
-    protected void onCrdDelete(CRDClass crd, boolean deletedFinalStateUnknown) {}
+    protected void onCrdDelete(CRDClass crd, boolean deletedFinalStateUnknown) {
+    	// noop
+    }
     
     private void registerCrdEventHandler() {
         this.crdSharedIndexInformer.addEventHandler(new ResourceEventHandler<CRDClass>() {

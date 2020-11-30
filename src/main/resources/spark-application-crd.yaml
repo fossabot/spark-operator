@@ -40,7 +40,6 @@ spec:
                   type: string
                 sparkConfigMap:
                   type: string
-                # scala, java, python
                 type:
                   type: string
                 mode:

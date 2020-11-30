@@ -1,5 +1,6 @@
 package com.stackable.spark.operator.cluster;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.log4j.Level;
@@ -19,7 +20,7 @@ public enum SparkClusterState {
 	 * 		INITIAL
 	 * 			|
 	 * 			v
-	 *  	CREATE_SPARK_MASTER	<-------<---*
+	 *  	CREATE_SPARK_MASTER	<-------<---+
 	 *  		|						|	|
 	 *  		|						|	|
 	 *  		v						|	|
@@ -27,29 +28,29 @@ public enum SparkClusterState {
 	 *  		|						|	|
 	 *  		|						|	|
 	 *  		v						|	|
-	 *  	WAIT_FOR_MASTER_RUNNING	----*	|
+	 *  	WAIT_FOR_MASTER_RUNNING	----+	|
 	 *  		|							|
 	 *  		|							|
 	 *  		v							|
-	 *  	CREATE_SPARK_WORKER	--------<>--*
+	 *  	CREATE_SPARK_WORKER	<>------+---+
 	 *  		|						^	|
 	 *  		|						|	|
 	 *  		v						|	|
-	 *  	WAIT_FOR_WORKERS_RUNNING ---*---^
+	 *  	WAIT_FOR_WORKERS_RUNNING ---+---^
 	 *  		|							|
 	 *  		|							|
 	 *  		v							|
-	 *  	RECONCILE ----------------------*
+	 *  	RECONCILE ----------------------+
 	 */
 	
 	/**
 	 * INITIAL:
-	 * Init and clea resources
+	 * Initialize and clear resources
 	 */
     INITIAL("INITIAL") {
         @Override
 		public SparkClusterState process(SparkClusterController controller, SparkCluster cluster) {
-        	super.log(Level.INFO, "Waiting...");
+        	super.log(Level.INFO, "StateMachine started...");
         	// reset hostMap
         	controller.getHostNameMap().clear();
             return CREATE_SPARK_MASTER;
@@ -64,17 +65,23 @@ public enum SparkClusterState {
 		public SparkClusterState process(SparkClusterController controller, SparkCluster cluster) {
         	SparkNode master = cluster.getSpec().getMaster();
         	List<Pod> pods = controller.getPodsByNode(cluster, master);
-        	// create master instances
-        	controller.createPods(pods, cluster, master);
-
+        	
         	super.log(Level.INFO, String.format("%s [%d / %d]", master.getPodTypeName(), pods.size(), master.getInstances()));
+        	
+        	// create master instances
+        	List<Pod> createdPods = controller.createPods(pods, cluster, master);
+        	if(createdPods.size() > 0) {
+        		List<String> output = new ArrayList<String>();
+        		createdPods.forEach((n) -> output.add(n.getMetadata().getName()));
+        		super.log(Level.INFO, "Created pods: " + output);
+        	}
         	
             return WAIT_FOR_MASTER_HOST_NAME;
         }
     },
     /**
      * WAIT_FOR_MASTER_HOST_NAME: 
-     * after master is created, wait for agent to set the dedicated hostname and use for workers 
+     * after master is created, wait for agent to set the dedicated host name and use for workers 
      * ==> create config map
      */
     WAIT_FOR_MASTER_HOST_NAME("WAIT_FOR_MASTER_HOST_NAME") {
@@ -89,7 +96,7 @@ public enum SparkClusterState {
         	// TODO: multiple master?
         	List<Pod> masterPods = controller.getPodsByNode(cluster, cluster.getSpec().getMaster());
         	
-			// check for hostname
+			// check for host name
         	String nodeName = masterPods.get(0).getSpec().getNodeName();
         	if( nodeName == null || nodeName.isEmpty()) {
         		return this;
@@ -98,11 +105,13 @@ public enum SparkClusterState {
         	super.log(Level.INFO, "Received hostname: " + nodeName  + " for pod: " + masterPods.get(0).getMetadata().getName());
     		// save host name for workers
     		controller.addToHostMap(masterPods.get(0).getMetadata().getName(), nodeName);
-    		// create configmap
-        	if(!masterPods.isEmpty()) {
-        		controller.createConfigMap(cluster, masterPods.get(0));
-        		logger.info("No master pod for config map creation available...");
+    		// check if master pods available 
+        	if(masterPods.isEmpty()) {
+        		super.log(Level.INFO, "No master pod for config map creation available...");
+        		return this;
         	}
+        	// create config map
+        	controller.createConfigMap(cluster, masterPods.get(0));
     		
    			return WAIT_FOR_MASTER_RUNNING;
         }
@@ -127,9 +136,11 @@ public enum SparkClusterState {
         		return CREATE_SPARK_WORKER;
         	}
         	
+        	SparkNode master = cluster.getSpec().getMaster();
+        	super.log(Level.INFO, String.format("%s [%d / %d]", master.getPodTypeName(), masterPods.size(), master.getInstances()));
+        	
             return this;
         }
-
     },
     /**
      * CREATE_SPARK_WORKER:
@@ -172,13 +183,22 @@ public enum SparkClusterState {
         	// spin up workers
         	SparkNodeWorker worker = cluster.getSpec().getWorker();
         	List<Pod> workerPods = controller.getPodsByNode(cluster, worker);
+        	
         	workerPods = controller.createPods(workerPods, cluster, worker);
         	
-        	// create config map
-        	if(!workerPods.isEmpty()) {
-        		logger.info("No worker pod for config map creation available...");
-        		controller.createConfigMap(cluster, workerPods.get(0));	
+        	if(workerPods.size() > 0) {
+        		List<String> output = new ArrayList<String>();
+        		workerPods.forEach((n) -> output.add(n.getMetadata().getName()));
+        		super.log(Level.INFO, "Created pods: " + output);
         	}
+        	
+        	// check if worker pods available
+        	if(workerPods.isEmpty()) {
+        		super.log(Level.INFO, "No worker pod for config map creation available...");
+        		return this;
+        	}
+        	// create config map        	
+        	controller.createConfigMap(cluster, workerPods.get(0));
         	
         	return WAIT_FOR_WORKERS_RUNNING;
         }
@@ -204,6 +224,9 @@ public enum SparkClusterState {
         		return RECONCILE;
         	}
         	
+        	SparkNode worker = cluster.getSpec().getWorker();
+        	super.log(Level.INFO, String.format("%s [%d / %d]", worker.getPodTypeName(), workerPods.size(), worker.getInstances()));
+        	
         	return this;
 		}
     },
@@ -222,6 +245,7 @@ public enum SparkClusterState {
 	public abstract SparkClusterState process(SparkClusterController controller, SparkCluster cluster);
 	
 	public static final Logger logger = Logger.getLogger(SparkClusterState.class.getName());
+	
 	private String state;
 	
     SparkClusterState(String state) {
@@ -247,19 +271,24 @@ public enum SparkClusterState {
     									SparkNode... nodes) {
     	for(SparkNode node : nodes) {
 	        List<Pod> pods = controller.getPodsByNode(cluster, node);
-	        log(Level.INFO, String.format("%s [%d / %d]", node.getPodTypeName(), pods.size(), node.getInstances()));	        
 	        // create pods by changing state
 	        if(getPodSpecToClusterDifference(node, pods) > 0) {
 	        	// create masters
 	        	if(node.getPodTypeName().equals(SparkNodeMaster.POD_TYPE))
 	        		return CREATE_SPARK_MASTER;
+	        	// create workers
 	        	else if(node.getPodTypeName().equals(SparkNodeWorker.POD_TYPE))
 	        		return CREATE_SPARK_WORKER;
 	        }
-	        
 	        // delete pods
 	        if(getPodSpecToClusterDifference(node, pods) < 0) {
-	        	controller.deletePods(pods, cluster, node);
+	        	List<Pod> deletedPods = controller.deletePods(pods, cluster, node);
+	        	
+	           	if(deletedPods.size() > 0) {
+	        		List<String> output = new ArrayList<String>();
+	        		deletedPods.forEach((n) -> output.add(n.getMetadata().getName()));
+	        		log(Level.INFO, "Deleted pods: " + output);
+	        	}
 	        }
     	}
 	   	return this;

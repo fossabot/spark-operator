@@ -14,7 +14,7 @@ public class SparkApplicationExecutor implements KubernetesResource {
 
 	private Integer instances;
 	private String cores;
-	private String coreLimits;
+	private String coreLimit;
 	private String memory;
 	private String memoryOverhead;
 	private String image;
@@ -36,12 +36,12 @@ public class SparkApplicationExecutor implements KubernetesResource {
 		this.cores = cores;
 	}
 
-	public String getCoreLimits() {
-		return coreLimits;
+	public String getCoreLimit() {
+		return coreLimit;
 	}
 
-	public void setCoreLimits(String coreLimits) {
-		this.coreLimits = coreLimits;
+	public void setCoreLimit(String coreLimit) {
+		this.coreLimit = coreLimit;
 	}
 
 	public String getMemory() {
