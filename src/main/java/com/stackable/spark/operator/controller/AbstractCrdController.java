@@ -97,9 +97,7 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
     /**
      * Overwrite method to add more informers to be synced (e.g. pods)
      */
-    protected void waitForAllInformersSynced() {
-    	while (!crdSharedIndexInformer.hasSynced());
-    }
+    protected abstract void waitForAllInformersSynced();
     
     /**
      * Waits until all informers are synced and waits for elements to be in the queue and runs process()

@@ -29,6 +29,12 @@
 			<artifactId>kubernetes-client</artifactId>
 			<version>${fabric8.client.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>io.fabric8</groupId>
+			<artifactId>kubernetes-server-mock</artifactId>
+			<version>${fabric8.client.version}</version>
+			<scope>test</scope>
+		</dependency>
 
 		<dependency>
 			<groupId>log4j</groupId>

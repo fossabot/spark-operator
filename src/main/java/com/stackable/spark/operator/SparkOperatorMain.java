@@ -58,17 +58,21 @@ public class SparkOperatorMain {
                 	exception -> logger.fatal("Tip: missing CRDs?\n" + exception));
 
             informerFactory.startAllRegisteredInformers();
-            
+  
             // start different controllers
-            Thread sparkClusterThread = new Thread(sparkClusterController);
-            sparkClusterThread.start();
-            
             Thread sparkApplicationThread = new Thread(sparkApplicationController);
             sparkApplicationThread.start();
             
+			// sleep for initialization
+            Thread.sleep(2000);
+            
+            Thread sparkClusterTread = new Thread(sparkClusterController);
+            sparkClusterTread.start();
         } catch (KubernetesClientException exception) {
             logger.fatal("Kubernetes Client Exception: " + exception.getMessage());
-        }
+        } catch (InterruptedException e) {
+			e.printStackTrace();
+		}
     }
 
 }
