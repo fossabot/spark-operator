@@ -37,7 +37,7 @@ spec:
                   properties:
                     instances:
                       type: integer
-                    cpu:
+                    cores:
                       type: string
                     memory:
                       type: string
@@ -78,7 +78,7 @@ spec:
                   properties:
                     instances:
                       type: integer
-                    cpu:
+                    cores:
                       type: string
                     memory:
                       type: string

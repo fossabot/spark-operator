@@ -19,7 +19,7 @@ public abstract class SparkNode implements KubernetesResource {
 
 	private Integer instances = 1;
 	private String memory;
-	private String cpu;
+	private String cores;
 	private List<SparkSelector> selectors = new ArrayList<SparkSelector>();
 	private List<String> command = new ArrayList<String>();
 	private List<String> args = new ArrayList<String>();
@@ -45,16 +45,16 @@ public abstract class SparkNode implements KubernetesResource {
         return memory;
     }
 
-    public void setMemory(java.lang.String memory) {
+    public void setMemory(String memory) {
         this.memory = memory;
     }
 
-    public java.lang.String getCpu() {
-        return cpu;
+    public java.lang.String getCores() {
+        return cores;
     }
 
-    public void setCpu(java.lang.String cpu) {
-        this.cpu = cpu;
+    public void setCores(String cores) {
+        this.cores = cores;
     }
     
 	public List<SparkSelector> getSelectors() {

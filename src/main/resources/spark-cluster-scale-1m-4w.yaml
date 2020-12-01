@@ -14,10 +14,11 @@ spec:
     env:
 #      - name: SPARK_HOME
 #        value: "{{packageroot}}/spark-3.0.1-bin-hadoop2.7"
-#      - name: SPARK_CONF_DIR
-#        value: "{{configroot}}"
-      - name: "SPARK_MASTER_PORT"
-        value: "9876"
+      - name: SPARK_CONF_DIR
+        value: "{{configroot}}"
+#      - name: "SPARK_MASTER_PORT"
+#        value: "7077"
+        # do not fork processes
       - name: "SPARK_NO_DAEMONIZE"
         value: "true"
   worker:
@@ -28,21 +29,21 @@ spec:
     # customize here if needed
     instances: 4 
     # no cpu defaults to take all
-    cpu: "1"
+    cores: "1"
     # no memory defaults to take all
     memory: "1000m"
     # end of customization
     command:
-
       # hostname and port provided from operator: start-slave.sh <MASTER_URL:MASTER_PORT>
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-slave.sh"
     env:
 #      - name: SPARK_HOME
 #        value: "{{packageroot}}/spark-3.0.1-bin-hadoop2.7"
-#      - name: SPARK_CONF_DIR
-#        value: "{{configroot}}"
-      - name: "SPARK_MASTER_PORT"
-        value: "9876"
+      - name: SPARK_CONF_DIR
+        value: "{{configroot}}"
+#      - name: "SPARK_MASTER_PORT"
+#        value: "7077"
+        # do not fork processes
       - name: "SPARK_NO_DAEMONIZE"
         value: "true"
   image: "spark:3.0.1"

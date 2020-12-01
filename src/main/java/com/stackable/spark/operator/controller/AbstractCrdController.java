@@ -7,6 +7,8 @@ import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
+import org.apache.log4j.Logger;
+
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.client.CustomResource;
 import io.fabric8.kubernetes.client.CustomResourceDoneable;
@@ -31,6 +33,8 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
 											CRDClassList extends CustomResourceList<CRDClass>,
 											CRDClassDoneable extends CustomResourceDoneable<CRDClass>>
 											implements Runnable {
+	
+    public static final Logger logger = Logger.getLogger(AbstractCrdController.class.getName());
 	
     public static final Integer WORKING_QUEUE_SIZE	= 1024;
 	
@@ -92,7 +96,7 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
 	 * @param controller - controller class extending AbstractCrdController
 	 * @param crd - specified CRD resource class for that controller
 	 */
-    protected abstract void process(AbstractCrdController<CRDClass,CRDClassList,CRDClassDoneable> controller, CRDClass crd);
+    protected abstract void process(CRDClass crd);
  
     /**
      * Overwrite method to add more informers to be synced (e.g. pods)
@@ -121,7 +125,7 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
                     return;
                 }
 
-                process(this, crd);
+                process(crd);
             } catch (InterruptedException interruptedException) {
                 Thread.currentThread().interrupt();
             }
@@ -144,14 +148,17 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
         this.crdSharedIndexInformer.addEventHandler(new ResourceEventHandler<CRDClass>() {
             @Override
             public void onAdd(CRDClass crd) {
+            	logger.trace("onAdd: " + crd);
             	onCrdAdd(crd);
             }
             @Override
             public void onUpdate(CRDClass crdOld, CRDClass crdNew) {
+            	logger.trace("onUpdate:\ncrdOld: " + crdOld + "\ncrdNew: " + crdNew);
             	onCrdUpdate(crdOld, crdNew);
             }
             @Override
             public void onDelete(CRDClass crd, boolean deletedFinalStateUnknown) {
+            	logger.trace("onDelete: " + crd);
             	onCrdDelete(crd, deletedFinalStateUnknown);
             }
         });

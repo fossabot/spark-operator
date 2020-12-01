@@ -4,7 +4,6 @@ import java.io.FileNotFoundException;
 
 import org.apache.log4j.Logger;
 
-import com.stackable.spark.operator.controller.SparkApplicationController;
 import com.stackable.spark.operator.controller.SparkClusterController;
 
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
@@ -36,22 +35,20 @@ public class SparkOperatorMain {
             
             SharedInformerFactory informerFactory = client.informers();
             
-            SparkApplicationController sparkApplicationController = 
-                	new SparkApplicationController(
-                			client, 
-                			informerFactory, 
-                			namespace, 
-                			"spark-application-crd.yaml",
-                			RESYNC_CYCLE
-                );
+//            SparkApplicationController sparkApplicationController =	new SparkApplicationController(
+//    			client, 
+//    			informerFactory, 
+//    			namespace, 
+//    			"spark-application-crd.yaml",
+//    			RESYNC_CYCLE
+//        	);
             
-            SparkClusterController sparkClusterController =
-            	new SparkClusterController(
-            			client, 
-            			informerFactory, 
-            			namespace, 
-            			"spark-cluster-crd.yaml", 
-            			RESYNC_CYCLE
+            SparkClusterController sparkClusterController = new SparkClusterController(
+    			client, 
+    			informerFactory, 
+    			namespace, 
+    			"spark-cluster-crd.yaml", 
+    			RESYNC_CYCLE
             );
 
             informerFactory.addSharedInformerEventListener(
@@ -60,14 +57,14 @@ public class SparkOperatorMain {
             informerFactory.startAllRegisteredInformers();
   
             // start different controllers
-            Thread sparkApplicationThread = new Thread(sparkApplicationController);
-            sparkApplicationThread.start();
+//            Thread sparkApplicationThread = new Thread(sparkApplicationController);
+//            sparkApplicationThread.start();
             
 			// sleep for initialization
             Thread.sleep(2000);
             
-            Thread sparkClusterTread = new Thread(sparkClusterController);
-            sparkClusterTread.start();
+            Thread sparkClusterThread = new Thread(sparkClusterController);
+            sparkClusterThread.start();
         } catch (KubernetesClientException exception) {
             logger.fatal("Kubernetes Client Exception: " + exception.getMessage());
         } catch (InterruptedException e) {

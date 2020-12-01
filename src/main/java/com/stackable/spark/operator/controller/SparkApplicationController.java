@@ -41,8 +41,7 @@ public class SparkApplicationController extends
 	}
 	
 	@Override
-	protected void process(	AbstractCrdController<SparkApplication, SparkApplicationList, SparkApplicationDoneable> controller, 
-							SparkApplication crd) {
+	protected void process(SparkApplication crd) {
 		logger.info("Got CRD: " + crd.getMetadata().getName());
 	}
 
