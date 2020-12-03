@@ -5,6 +5,7 @@ import org.apache.log4j.Logger;
 import com.stackable.spark.operator.application.SparkApplication;
 import com.stackable.spark.operator.application.SparkApplicationDoneable;
 import com.stackable.spark.operator.application.SparkApplicationList;
+import com.stackable.spark.operator.application.launcher.SparkApplicationLauncher;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.base.CustomResourceDefinitionContext;
@@ -15,6 +16,8 @@ public class SparkApplicationController extends
 
 	public static final Logger logger = Logger.getLogger(SparkApplicationController.class.getName());
 	
+	private SparkApplicationLauncher sparkApplicationLauncher;
+	
 	public SparkApplicationController(
 		KubernetesClient client,
 		SharedInformerFactory informerFactory,
@@ -23,6 +26,8 @@ public class SparkApplicationController extends
 		Long resyncCycle) {
 		
 		super(client, informerFactory, namespace, crdPath, resyncCycle);
+		
+		sparkApplicationLauncher = new SparkApplicationLauncher();
 	}
 
     protected CustomResourceDefinitionContext getCrdContext() {
@@ -41,8 +46,9 @@ public class SparkApplicationController extends
 	}
 	
 	@Override
-	protected void process(SparkApplication crd) {
-		logger.info("Got CRD: " + crd.getMetadata().getName());
+	protected void process(SparkApplication app) {
+		logger.info("Got CRD: " + app.getMetadata().getName());
+		sparkApplicationLauncher.launch(app);
 	}
 
 }

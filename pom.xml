@@ -16,6 +16,7 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		
 		<fabric8.client.version>4.13.0</fabric8.client.version>
+		<org.apache.spark.version>3.0.1</org.apache.spark.version>
 		
 		<maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
 		<maven-surefire-plugin.version>3.0.0-M4</maven-surefire-plugin.version>
@@ -29,6 +30,12 @@
 			<artifactId>kubernetes-client</artifactId>
 			<version>${fabric8.client.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>org.apache.spark</groupId>
+			<artifactId>spark-launcher_2.12</artifactId>
+			<version>${org.apache.spark.version}</version>
+		</dependency>
+		
 		<dependency>
 			<groupId>io.fabric8</groupId>
 			<artifactId>kubernetes-server-mock</artifactId>

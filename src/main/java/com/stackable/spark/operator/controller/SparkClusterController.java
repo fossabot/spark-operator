@@ -431,7 +431,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
     
     private void addToConfigFiles(Map<String,String> configFiles, StringBuffer sb, SparkConfig config, String value) {
         if(value != null && !value.isEmpty()) {
-        	sb.append(config.toString() + "=" + value + "\n");
+        	sb.append(config.getEnv() + "=" + value + "\n");
         }
     }
     

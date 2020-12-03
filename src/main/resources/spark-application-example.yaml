@@ -13,3 +13,5 @@ spec:
     instances: 2
     cores: "2"
     coreLimit: "400m"
+  args:
+    - "5"
