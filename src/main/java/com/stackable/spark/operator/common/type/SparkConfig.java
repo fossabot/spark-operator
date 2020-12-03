@@ -54,6 +54,11 @@ public enum SparkConfig {
 	# - MKL_NUM_THREADS=1        Disable multi-threading of Intel MKL
 	# - OPENBLAS_NUM_THREADS=1   Disable multi-threading of OpenBLAS
 	*/
+	
+	/**
+	 * to bind the master to a different IP address or hostname
+	 */
+	SPARK_MASTER_HOST("SPARK_MASTER_HOST"),
 	/**
 	 * to use non-default master port
 	 */

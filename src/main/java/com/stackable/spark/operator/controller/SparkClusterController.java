@@ -155,7 +155,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		case CREATE_SPARK_MASTER: {
 			if(reconcile(cluster) == SparkClusterState.CREATE_SPARK_WORKER) {
 				// ignore
-			};
+			}
         	// create master instances
 			SparkNode master = cluster.getSpec().getMaster();
 			List<Pod> masterPods = getPodsByNode(cluster, master);
@@ -175,7 +175,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 			// TODO: multiple master?
 			if(reconcile(cluster) == SparkClusterState.CREATE_SPARK_WORKER) {
 				// ignore
-			};
+			}
         	
         	SparkNode master = cluster.getSpec().getMaster();
         	List<Pod> masterPods = getPodsByNode(cluster, master);
@@ -199,7 +199,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		case WAIT_FOR_MASTER_RUNNING: {
 			if(reconcile(cluster) == SparkClusterState.CREATE_SPARK_WORKER) {
 				// ignore
-			};
+			}
 
 			// TODO: multiple master?
 			SparkNode master = cluster.getSpec().getMaster();
@@ -221,7 +221,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		case CREATE_SPARK_WORKER: {
 			if(reconcile(cluster) != SparkClusterState.CREATE_SPARK_WORKER) {
 				break;
-			};
+			}
         	
 			SparkNode master = cluster.getSpec().getMaster();
 			List<Pod> masterPods = getPodsByNode(cluster, master);
@@ -252,7 +252,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		case WAIT_FOR_WORKERS_RUNNING: {
 			if(reconcile(cluster) != SparkClusterState.WAIT_FOR_WORKERS_RUNNING) {
 				break;
-			};
+			}
 			
         	List<Pod> workerPods = getPodsByNode(cluster, cluster.getSpec().getWorker());
 
@@ -263,7 +263,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
         	
         	clusterState = SparkClusterState.RECONCILE;
         	// no break needed
-			break;
+			// break;
 		}
 	    /**
 	     * RECONCILE:
@@ -414,10 +414,11 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
         // only worker has required information to be set
         SparkNode worker = cluster.getSpec().getWorker();
         Map<String,String> configFiles = new HashMap<String,String>();
-        // all known data in yaml
+        // all known data in yaml and pojo
         addToConfigFiles(configFiles, sb, SparkConfig.SPARK_WORKER_CORES, worker.getCores());
         addToConfigFiles(configFiles, sb, SparkConfig.SPARK_WORKER_MEMORY, worker.getMemory());
-        
+        //addToConfigFiles(configFiles, sb, SparkConfig.SPARK_MASTER_HOST, "");
+
         configFiles.put("spark-env.sh", sb.toString());
         
         configMapResource.createOrReplace(new ConfigMapBuilder()
@@ -466,7 +467,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
                 .withVolumes(vol)
                 .addNewContainer()
                 	//TODO: no ":" etc in withName
-	            	.withName("spark3")
+	            	.withName("spark-3-0-1")
 	            	.withImage(cluster.getSpec().getImage())
 	            	.withCommand(node.getCommand())
 	            	.withArgs(node.getArgs())
