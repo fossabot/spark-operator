@@ -53,6 +53,26 @@
 	<build>
 		<plugins>
 			<plugin>
+				<groupId>com.googlecode.maven-download-plugin</groupId>
+				<artifactId>download-maven-plugin</artifactId>
+				<version>1.6.0</version>
+				<executions>
+					<execution>
+						<id>install-spark</id>
+						<phase>package</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>https://apache.mirror.digionline.de/spark/spark-3.0.1/spark-3.0.1-bin-hadoop2.7.tgz</url>
+							<unpack>true</unpack>
+							<outputDirectory>${project.build.directory}/classes</outputDirectory>
+							<md5>ac8f280c537a0e71982c1dbe56ff8858</md5>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-assembly-plugin</artifactId>
 				<version>${maven-assembly-plugin.version}</version>

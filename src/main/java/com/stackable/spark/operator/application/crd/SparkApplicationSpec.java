@@ -130,4 +130,102 @@ public class SparkApplicationSpec implements KubernetesResource {
 	public void setEnv(List<EnvVar> env) {
 		this.env = env;
 	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((args == null) ? 0 : args.hashCode());
+		result = prime * result + ((dependencies == null) ? 0 : dependencies.hashCode());
+		result = prime * result + ((driver == null) ? 0 : driver.hashCode());
+		result = prime * result + ((env == null) ? 0 : env.hashCode());
+		result = prime * result + ((executor == null) ? 0 : executor.hashCode());
+		result = prime * result + ((image == null) ? 0 : image.hashCode());
+		result = prime * result + ((imagePullPolicy == null) ? 0 : imagePullPolicy.hashCode());
+		result = prime * result + ((mainApplicationFile == null) ? 0 : mainApplicationFile.hashCode());
+		result = prime * result + ((mainClass == null) ? 0 : mainClass.hashCode());
+		result = prime * result + ((mode == null) ? 0 : mode.hashCode());
+		result = prime * result + ((restartPolicy == null) ? 0 : restartPolicy.hashCode());
+		result = prime * result + ((sparkConfigMap == null) ? 0 : sparkConfigMap.hashCode());
+		result = prime * result + ((type == null) ? 0 : type.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		SparkApplicationSpec other = (SparkApplicationSpec) obj;
+		if (args == null) {
+			if (other.args != null)
+				return false;
+		} else if (!args.equals(other.args))
+			return false;
+		if (dependencies == null) {
+			if (other.dependencies != null)
+				return false;
+		} else if (!dependencies.equals(other.dependencies))
+			return false;
+		if (driver == null) {
+			if (other.driver != null)
+				return false;
+		} else if (!driver.equals(other.driver))
+			return false;
+		if (env == null) {
+			if (other.env != null)
+				return false;
+		} else if (!env.equals(other.env))
+			return false;
+		if (executor == null) {
+			if (other.executor != null)
+				return false;
+		} else if (!executor.equals(other.executor))
+			return false;
+		if (image == null) {
+			if (other.image != null)
+				return false;
+		} else if (!image.equals(other.image))
+			return false;
+		if (imagePullPolicy == null) {
+			if (other.imagePullPolicy != null)
+				return false;
+		} else if (!imagePullPolicy.equals(other.imagePullPolicy))
+			return false;
+		if (mainApplicationFile == null) {
+			if (other.mainApplicationFile != null)
+				return false;
+		} else if (!mainApplicationFile.equals(other.mainApplicationFile))
+			return false;
+		if (mainClass == null) {
+			if (other.mainClass != null)
+				return false;
+		} else if (!mainClass.equals(other.mainClass))
+			return false;
+		if (mode == null) {
+			if (other.mode != null)
+				return false;
+		} else if (!mode.equals(other.mode))
+			return false;
+		if (restartPolicy == null) {
+			if (other.restartPolicy != null)
+				return false;
+		} else if (!restartPolicy.equals(other.restartPolicy))
+			return false;
+		if (sparkConfigMap == null) {
+			if (other.sparkConfigMap != null)
+				return false;
+		} else if (!sparkConfigMap.equals(other.sparkConfigMap))
+			return false;
+		if (type == null) {
+			if (other.type != null)
+				return false;
+		} else if (!type.equals(other.type))
+			return false;
+		return true;
+	}
+	
 }

@@ -144,7 +144,6 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		case INITIAL: {
 			logger.debug(String.format("[%s]", clusterState.toString()));
 			clusterState = SparkClusterState.CREATE_SPARK_MASTER;
-			
 			// no break required
 			// break;
 		}

@@ -75,5 +75,66 @@ public class SparkApplicationExecutor implements KubernetesResource {
 	public void setLabels(Map<String, String> labels) {
 		this.labels = labels;
 	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((coreLimit == null) ? 0 : coreLimit.hashCode());
+		result = prime * result + ((cores == null) ? 0 : cores.hashCode());
+		result = prime * result + ((image == null) ? 0 : image.hashCode());
+		result = prime * result + ((instances == null) ? 0 : instances.hashCode());
+		result = prime * result + ((labels == null) ? 0 : labels.hashCode());
+		result = prime * result + ((memory == null) ? 0 : memory.hashCode());
+		result = prime * result + ((memoryOverhead == null) ? 0 : memoryOverhead.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		SparkApplicationExecutor other = (SparkApplicationExecutor) obj;
+		if (coreLimit == null) {
+			if (other.coreLimit != null)
+				return false;
+		} else if (!coreLimit.equals(other.coreLimit))
+			return false;
+		if (cores == null) {
+			if (other.cores != null)
+				return false;
+		} else if (!cores.equals(other.cores))
+			return false;
+		if (image == null) {
+			if (other.image != null)
+				return false;
+		} else if (!image.equals(other.image))
+			return false;
+		if (instances == null) {
+			if (other.instances != null)
+				return false;
+		} else if (!instances.equals(other.instances))
+			return false;
+		if (labels == null) {
+			if (other.labels != null)
+				return false;
+		} else if (!labels.equals(other.labels))
+			return false;
+		if (memory == null) {
+			if (other.memory != null)
+				return false;
+		} else if (!memory.equals(other.memory))
+			return false;
+		if (memoryOverhead == null) {
+			if (other.memoryOverhead != null)
+				return false;
+		} else if (!memoryOverhead.equals(other.memoryOverhead))
+			return false;
+		return true;
+	}
 	
 }

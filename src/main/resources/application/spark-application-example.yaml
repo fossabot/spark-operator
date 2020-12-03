@@ -4,14 +4,15 @@ metadata:
   name: spark-application
 spec:
   image: "spark"
-  mainApplicationFile: "examples/jars/spark-examples_2.11-2.4.5.jar"
+  mainApplicationFile: "target/classes/spark-3.0.1-bin-hadoop2.7/examples/jars/spark-examples_2.12-3.0.1.jar"
   mainClass: "org.apache.spark.examples.SparkPi"
+  mode: "cluster"
   driver:
     cores: "1"
-    coreLimit: "200m"
+    memory: "500m"
   executor:
     instances: 2
     cores: "2"
-    coreLimit: "400m"
+    memory: "1g"
   args:
     - "5"

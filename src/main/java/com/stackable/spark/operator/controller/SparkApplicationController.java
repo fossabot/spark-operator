@@ -47,7 +47,7 @@ public class SparkApplicationController extends
 	
 	@Override
 	protected void process(SparkApplication app) {
-		logger.info("Got CRD: " + app.getMetadata().getName());
+		logger.trace("Got CRD: " + app.getMetadata().getName());
 		sparkApplicationLauncher.launch(app);
 	}
 

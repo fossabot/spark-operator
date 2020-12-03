@@ -40,7 +40,7 @@ public class SparkOperatorMain {
     			client, 
     			informerFactory, 
     			namespace, 
-    			"spark-application-crd.yaml",
+    			"application/spark-application-crd.yaml",
     			RESYNC_CYCLE
         	);
             
@@ -48,7 +48,7 @@ public class SparkOperatorMain {
     			client, 
     			informerFactory, 
     			namespace, 
-    			"spark-cluster-crd.yaml", 
+    			"cluster/spark-cluster-crd.yaml", 
     			RESYNC_CYCLE
             );
 

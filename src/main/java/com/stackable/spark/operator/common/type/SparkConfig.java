@@ -93,7 +93,7 @@ public enum SparkConfig {
 	/**
 	 * to use non-default web ui port for the master
 	 */
-	SPARK_MASTER_WEBUI_PORT("SPARK_MASTER_WEBUI_PORT", ""),
+	SPARK_MASTER_WEBUI_PORT("SPARK_MASTER_WEBUI_PORT", "spark.master.webui.port"),
 	/**
 	 * to set the number of cores to use on this machine
 	 */
@@ -106,9 +106,9 @@ public enum SparkConfig {
 	private String env;
 	private String config;
 	
-	SparkConfig(String config, String env) {
-		this.config = config;
+	SparkConfig(String env, String config ) {
 		this.env = env;
+		this.config = config;
 	}
 	
 	public String getEnv() {
