@@ -20,11 +20,12 @@ public class SparkApplicationListener  implements SparkAppHandle.Listener, Runna
         String sparkAppId = handle.getAppId();
         State appState = handle.getState();
         if (sparkAppId != null) {
-            logger.info("Spark job with app id: " + sparkAppId + ",\t State changed to: " + appState);
+            logger.info("spark job[" + sparkAppId + "] state changed to: " + appState);
         } else {
-        	logger.info("Spark job's state changed to: " + appState);
+        	logger.info("spark job state changed to: " + appState);
         }
         if (appState != null && appState.isFinal()) {
+        	logger.info("spark job[" + sparkAppId + "] state changed to: " + appState);
             countDownLatch.countDown();
         }
     }

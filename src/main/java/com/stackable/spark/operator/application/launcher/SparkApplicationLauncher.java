@@ -7,7 +7,6 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.log4j.Logger;
 import org.apache.spark.launcher.SparkLauncher;
 
 import com.stackable.spark.operator.application.SparkApplication;
@@ -31,11 +30,11 @@ public class SparkApplicationLauncher {
 			final CountDownLatch countDownLatch = new CountDownLatch(1);
 			SparkApplicationListener sparkAppListener = new SparkApplicationListener(countDownLatch);
 			
-			URL sparkSubmit = ClassLoader.getSystemResource("spark-3.0.1-bin-hadoop2.7");
+			URL sparkHome = ClassLoader.getSystemResource("spark-3.0.1-bin-hadoop2.7");
 		
 			new SparkLauncher()
 				//.setSparkHome("/home/bawa/Downloads/krustlet/work/parcels/spark-3.0.1/spark-3.0.1-bin-hadoop2.7")
-				.setSparkHome(sparkSubmit.getPath())
+				.setSparkHome(sparkHome.getPath())
 				//.setAppResource("/home/bawa/Downloads/krustlet/work/parcels/spark-3.0.1/spark-3.0.1-bin-hadoop2.7/examples/jars/spark-examples_2.12-3.0.1.jar")
 				.setAppResource(spec.getMainApplicationFile())	
 				.setMainClass(spec.getMainClass())
@@ -52,6 +51,7 @@ public class SparkApplicationLauncher {
 
 			Thread sparkAppListenerThread = new Thread(sparkAppListener);
 			sparkAppListenerThread.start();
+			
 			long timeout = 120;
 			countDownLatch.await(timeout, TimeUnit.SECONDS);
 		}

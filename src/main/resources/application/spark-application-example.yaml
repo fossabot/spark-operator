@@ -8,7 +8,9 @@ spec:
   # from mini http server test
   #mainApplicationFile: "http://127.0.0.1:8000/jars/spark-examples_2.12-3.0.1.jar"
   mainClass: "org.apache.spark.examples.SparkPi"
-  mode: "cluster"
+  # cluster fire and forget -> no status checks possible via operator
+  # client -> driver started locally needs to stay online to finish job
+  mode: "client"
   driver:
     cores: "1"
     memory: "500m"
