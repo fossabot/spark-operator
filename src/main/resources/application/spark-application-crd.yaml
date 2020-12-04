@@ -9,12 +9,14 @@ spec:
   # either Namespaced or Cluster
   scope: Namespaced
   names:
-    # plural name to be used in the URL: /apis/<group>/<version>/<plural>
-    plural: sparkapplications
-    # singular name to be used as an alias on the CLI and for display
-    singular: sparkapplication
     # kind is normally the CamelCased singular type. Your resource manifests use this.
     kind: SparkApplication
+    # singular name to be used as an alias on the CLI and for display
+    singular: sparkapplication
+    # plural name to be used in the URL: /apis/<group>/<version>/<plural>
+    plural: sparkapplications
+    # listname for list querys
+    listKind: SparkApplicationList
     # shortNames allow shorter string to match your resource on the CLI
     shortNames:
     - sa
@@ -25,6 +27,9 @@ spec:
       served: true
       # One and only one version must be marked as the storage version.
       storage: true
+      # enable status subresource
+      subresources:
+        status: {}
       schema:
         openAPIV3Schema:
           type: object
@@ -34,18 +39,25 @@ spec:
               properties:
                 image:
                   type: string
+                # main jar for the application startup
                 mainApplicationFile:
                   type: string
+                # main class in the main jar
                 mainClass:
                   type: string
+                # name of spark config map if existing
                 sparkConfigMap:
                   type: string
+                # JAVA, SCALA ...
                 type:
                   type: string
+                # cluster or client mode
                 mode:
                   type: string
+                # define the restart policy
                 restartPolicy:
                   type: string
+                # define image pull policy
                 imagePullPolicy:
                   type: string
                 driver:
@@ -78,14 +90,17 @@ spec:
                       type: string
                     image:
                       type: string
+                # additional dependencies / data to load with the main jar
                 dependencies:
                   type: array
                   items:
                     type: string
+                # arguments required for start up
                 args:
                   type: array
                   items:
                     type: string
+                # environment variables set before startup
                 env:
                   type: array
                   items:

@@ -5,6 +5,8 @@ metadata:
 spec:
   image: "spark"
   mainApplicationFile: "target/classes/spark-3.0.1-bin-hadoop2.7/examples/jars/spark-examples_2.12-3.0.1.jar"
+  # from mini http server test
+  #mainApplicationFile: "http://127.0.0.1:8000/jars/spark-examples_2.12-3.0.1.jar"
   mainClass: "org.apache.spark.examples.SparkPi"
   mode: "cluster"
   driver:

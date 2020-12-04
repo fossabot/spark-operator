@@ -7,12 +7,14 @@ spec:
   # group name to use for REST API: /apis/<group>/<version>
   group: spark.stackable.de
   names:
-    # plural name to be used in the URL: /apis/<group>/<version>/<plural>
-    plural: sparkclusters
-    # singular name to be used as an alias on the CLI and for display
-    singular: sparkcluster
     # kind is normally the CamelCased singular type. Your resource manifests use this.
     kind: SparkCluster
+    # singular name to be used as an alias on the CLI and for display
+    singular: sparkcluster
+    # plural name to be used in the URL: /apis/<group>/<version>/<plural>
+    plural: sparkclusters
+    # listname for list querys
+    listKind: SparkClusterList
     # shortNames allow shorter string to match your resource on the CLI
     shortNames:
     - sc
@@ -25,6 +27,7 @@ spec:
       served: true
       # One and only one version must be marked as the storage version.
       storage: true
+      # enable status subresource
       subresources:
         status: {}
       schema:
@@ -37,10 +40,13 @@ spec:
                 master:
                   type: object
                   properties:
+                    # number of master instances
                     instances:
                       type: integer
+                    # number of master cores
                     cores:
                       type: string
+                    # number of master memory
                     memory:
                       type: string
                     # selector start
@@ -58,14 +64,17 @@ spec:
                                   kubernetes.io/hostname:
                                     type: string
                     # end selector
+                    # command to be run for startup
                     command:
                       type: array
                       items:
                         type: string
+                    # arguments required for start up
                     args:
                       type: array
                       items:
                         type: string
+                    # environment variables set before startup
                     env:
                       type: array
                       items:
@@ -78,10 +87,13 @@ spec:
                 worker:
                   type: object
                   properties:
+                    # number of worker instances
                     instances:
                       type: integer
+                    # number of worker cores
                     cores:
                       type: string
+                    # number of worker memory
                     memory:
                       type: string
                     # selector start
@@ -99,14 +111,17 @@ spec:
                                   kubernetes.io/hostname:
                                     type: string
                     # end selector
+                    # command to be run for startup
                     command:
                       type: array
                       items:
                         type: string
+                    # arguments required for start up
                     args:
                       type: array
                       items:
                         type: string
+                    # environment variables set before startup
                     env:
                       type: array
                       items:
@@ -116,7 +131,9 @@ spec:
                             type: string
                           value: 
                             type: string
+                # spark image if coming from repository
                 image:
                   type: string
+                # metrics exposed or not
                 metrics:
                   type: boolean
