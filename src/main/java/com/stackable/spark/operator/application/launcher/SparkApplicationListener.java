@@ -30,7 +30,15 @@ public class SparkApplicationListener  implements SparkAppHandle.Listener, Runna
         }
     }
     @Override
-    public void infoChanged(SparkAppHandle handle) {}
+    public void infoChanged(SparkAppHandle handle) {
+        String sparkAppId = handle.getAppId();
+        State appState = handle.getState();
+        if (sparkAppId != null) {
+            logger.info("spark job info[" + sparkAppId + "] state changed to: " + appState);
+        } else {
+        	logger.info("spark job info changed to: " + appState);
+        }
+    }
     @Override
     public void run() {}
 }

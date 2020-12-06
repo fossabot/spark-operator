@@ -208,16 +208,12 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
 		return crdSharedIndexInformer;
 	}
 
-	public void setCrdSharedIndexInformer(SharedIndexInformer<CRDClass> crdSharedIndexInformer) {
-		this.crdSharedIndexInformer = crdSharedIndexInformer;
-	}
-
 	public Lister<CRDClass> getCrdLister() {
 		return crdLister;
 	}
 
-	public void setCrdLister(Lister<CRDClass> crdLister) {
-		this.crdLister = crdLister;
+	public MixedOperation<CRDClass, CRDClassList, CRDClassDoneable, Resource<CRDClass, CRDClassDoneable>> getCrdClient() {
+		return crdClient;
 	}
 
 }

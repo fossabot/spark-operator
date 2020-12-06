@@ -19,10 +19,12 @@
 		<org.apache.spark.version>3.0.1</org.apache.spark.version>
 		
 		<maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
-		<maven-surefire-plugin.version>3.0.0-M4</maven-surefire-plugin.version>
+		<maven-surefire-plugin.version>3.0.0-M5</maven-surefire-plugin.version>
 		
 		<log4j.version>1.2.17</log4j.version>
 		<slf4j.version>1.7.30</slf4j.version>
+		
+		<junit.version>5.7.0</junit.version>
 	</properties>
 
 	<dependencies>
@@ -54,6 +56,12 @@
 		    <artifactId>slf4j-simple</artifactId>
 		    <version>${slf4j.version}</version>
 		</dependency>
+	    <dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-api</artifactId>
+			<version>${junit.version}</version>
+			<scope>test</scope>
+   		</dependency>
 	</dependencies>
 
 	<build>
@@ -104,12 +112,18 @@
 				</executions>
 			</plugin>
 			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-surefire-plugin</artifactId>
-				<!-- JUnit 5 requires Surefire version 2.22.0 or higher -->
-				<version>${maven-surefire-plugin.version}</version>
+			    <groupId>org.apache.maven.plugins</groupId>
+			    <artifactId>maven-surefire-plugin</artifactId>
+			    <version>${maven-surefire-plugin.version}</version>
+			    <dependencies>
+				    <dependency>
+				        <groupId>org.junit.jupiter</groupId>
+				        <artifactId>junit-jupiter-engine</artifactId>
+				        <version>${junit.version}</version>
+				    </dependency>
+			    </dependencies>
 			</plugin>
-		</plugins>
+    	</plugins>
 	</build>
 
 </project>

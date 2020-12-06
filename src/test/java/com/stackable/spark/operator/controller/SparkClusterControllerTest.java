@@ -1,46 +1,54 @@
 package com.stackable.spark.operator.controller;
 
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestInstance.Lifecycle;
+
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.informers.SharedInformerFactory;
+import io.fabric8.kubernetes.client.server.mock.KubernetesServer;
+
+@TestInstance(Lifecycle.PER_CLASS)
 public class SparkClusterControllerTest {
-//	@Rule
-//	public KubernetesServer server = new KubernetesServer();
-//	
-//	public KubernetesClient client;
-//	public SharedInformerFactory informerFactory;
-//	
-//	public SparkClusterController controller;
-//	
-//	public String namespace = "default";
-//	public String crdPath = "spark-cluster-crd.yaml";
-//	public long resyncCycle = 5 * 1000L;
-//	
-//    @Before
-//    public void setUp() {
-//    	client = server.getClient();
-//    	informerFactory = client.informers();
-//    	controller = new SparkClusterController(client, informerFactory, namespace, crdPath, resyncCycle);
-//    	informerFactory.startAllRegisteredInformers();
-//    }
-//
-//    @After
-//    public void tearDown() {
-//    	informerFactory.stopAllRegisteredInformers();
-//    	client.close();
-//    }
-//	
-//	@Test
-//	@DisplayName("Should be able to list pods in default namespace")
-//	public void testCreateSparkClusterController() {
-//	    // Given
-//	    server.expect().get().withPath("/api/v1/namespaces/default/pods")
-//	            .andReturn(HttpURLConnection.HTTP_OK, new PodListBuilder().build())
-//	            .once();
-//	    
-//	    KubernetesClient client = server.getClient();
-//
-//	    // When
-//	    PodList podList = client.pods().inNamespace("default").list();
-//
-//	    // Then
-//	    assertTrue(podList.getItems().isEmpty());
-//	}
+	public KubernetesServer server;
+	
+	public KubernetesClient client;
+	public SharedInformerFactory informerFactory;
+	
+	public SparkClusterController controller;
+	
+	public String namespace = "default";
+	public String crdPath = "cluster/spark-cluster-crd.yaml";
+	
+	public long resyncCycle = 5 * 1000L;
+	
+	@BeforeAll
+    public void init() {
+		server = new KubernetesServer(true, true);
+		server.before();
+		
+    	client = server.getClient();
+    	informerFactory = client.informers();
+    	controller = new SparkClusterController(client, informerFactory, namespace, crdPath, resyncCycle);
+    	informerFactory.startAllRegisteredInformers();
+    }
+
+    @AfterAll
+    public void cleanUp() {
+    	informerFactory.stopAllRegisteredInformers();
+    	client.close();
+		server.after();
+    }
+    
+    @Test
+    @DisplayName("Should list all SparkCluster custom resources")
+    public void testSparkClusterList() {
+        // Given
+        //KubernetesClient client = server.getClient();
+
+    }
+
 }
