@@ -137,3 +137,49 @@ spec:
                 # metrics exposed or not
                 metrics:
                   type: boolean
+            status:
+              type: object
+              properties:
+                runningCommand:
+                  type: object
+                  properties:
+                    command:
+                      type: string
+                    timeStamp:
+                      type: string
+                    startedAt:
+                      type: string
+                    finishedAt:
+                      type: string
+                    status:
+                      type: string
+                stagedCommand:
+                  type: object
+                  properties:
+                    command:
+                      type: string
+                    timeStamp:
+                      type: string
+                    startedAt:
+                      type: string
+                    finishedAt:
+                      type: string
+                    status:
+                      type: string
+      # print cluster state in kubectl get
+      additionalPrinterColumns:
+        - name: Master
+          type: integer
+          jsonPath: .spec.master.instances
+        - name: Worker
+          type: integer
+          jsonPath: .spec.worker.instances
+        - name: Worker_Cores
+          type: string
+          jsonPath: .spec.worker.cores
+        - name: Worker_Memory
+          type: string
+          jsonPath: .spec.worker.memory
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp

@@ -1,7 +1,6 @@
 package com.stackable.spark.operator.controller;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,13 +41,13 @@ import io.fabric8.kubernetes.client.informers.cache.Lister;
 /**
  * The SparkClusterController is responsible for installing the spark master and workers.
  * Scale up and down to the instances required in the specification.
+ * Offer systemd functionality for start, stop and restart the cluster
  */
 public class SparkClusterController extends AbstractCrdController<SparkCluster, SparkClusterList, SparkClusterDoneable> {
 	
     public static final Logger logger = Logger.getLogger(SparkClusterController.class.getName());
 
     public static final String SPARK_CLUSTER_KIND 	= "SparkCluster";
-    public static final String APP_LABEL 			= "cluster";
 
     private SharedIndexInformer<Pod> podInformer;
     private Lister<Pod> podLister;
@@ -450,33 +449,32 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
                 .withNewMetadata()
                   .withGenerateName(createPodName(cluster, node))
                   .withNamespace(cluster.getMetadata().getNamespace())
-                  .withLabels(Collections.singletonMap(APP_LABEL, cluster.getMetadata().getName()))
                   .addNewOwnerReference()
-                  .withController(true)
-                  .withKind(cluster.getKind())
-                  .withApiVersion(cluster.getApiVersion())
-                  .withName(cluster.getMetadata().getName())
-                  .withNewUid(cluster.getMetadata().getUid())
+	                  .withController(true)
+	                  .withKind(cluster.getKind())
+	                  .withApiVersion(cluster.getApiVersion())
+	                  .withName(cluster.getMetadata().getName())
+	                  .withNewUid(cluster.getMetadata().getUid())
                   .endOwnerReference()
                 .endMetadata()
                 .withNewSpec()
-                .withTolerations(tolerations)
-                // TODO: check for null / zero elements
-                .withNodeSelector(node.getSelectors().get(0).getSelector().getMatchLabels())
-                .withVolumes(vol)
-                .addNewContainer()
-                	//TODO: no ":" etc in withName
-	            	.withName("spark-3-0-1")
-	            	.withImage(cluster.getSpec().getImage())
-	            	.withCommand(node.getCommand())
-	            	.withArgs(node.getArgs())
-	                .addNewVolumeMount()
-	                	// TODO: replace hardcoded
-	                  	.withMountPath("conf")
-	                  	.withName(cmName)
-	                .endVolumeMount()
-	                .withEnv(node.getEnv())
-                .endContainer()
+	                .withTolerations(tolerations)
+	                // TODO: check for null / zero elements
+	                .withNodeSelector(node.getSelectors().get(0).getSelector().getMatchLabels())
+	                .withVolumes(vol)
+		                .addNewContainer()
+		                	//TODO: no ":" etc in withName
+			            	.withName("spark-3-0-1")
+			            	.withImage(cluster.getSpec().getImage())
+			            	.withCommand(node.getCommand())
+			            	.withArgs(node.getArgs())
+			                .addNewVolumeMount()
+			                	// TODO: replace hardcoded
+			                  	.withMountPath("conf")
+			                  	.withName(cmName)
+			                .endVolumeMount()
+			                .withEnv(node.getEnv())
+		                .endContainer()
                 .endSpec()
                 .build();
     }

@@ -9,6 +9,10 @@ spec:
          matchLabels:
            kubernetes.io/hostname: "bawa-virtualbox"
     instances: 1
+    # no cpu defaults to take all
+    cores: "1"
+    # no memory defaults to take all
+    memory: "1000m"
     command:
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-master.sh"
     env:
@@ -26,7 +30,7 @@ spec:
       - selector: 
          matchLabels:
            kubernetes.io/hostname: "bawa-virtualbox"
-    # customize here if needed
+    # number of workers
     instances: 2 
     # no cpu defaults to take all
     cores: "1"
