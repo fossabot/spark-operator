@@ -8,6 +8,26 @@ spec:
       - selector: 
          matchLabels:
            kubernetes.io/hostname: "bawa-virtualbox"
+    tolerations:
+      - key: "kubernetes.io/arch"
+        operator: "Equal"
+        effect: "NoSchedule"
+        value: "stackable-linux"
+      - key: "kubernetes.io/arch"
+        operator: "Equal"
+        effect: "NoExecute"
+        value: "stackable-linux"
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoSchedule"
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 300
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 300
     instances: 1
     # no cpu defaults to take all
     cores: "1"
@@ -30,6 +50,26 @@ spec:
       - selector: 
          matchLabels:
            kubernetes.io/hostname: "bawa-virtualbox"
+    tolerations:
+      - key: "kubernetes.io/arch"
+        operator: "Equal"
+        effect: "NoSchedule"
+        value: "stackable-linux"
+      - key: "kubernetes.io/arch"
+        operator: "Equal"
+        effect: "NoExecute"
+        value: "stackable-linux"
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoSchedule"
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 300
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 300
     # number of workers
     instances: 2 
     # no cpu defaults to take all

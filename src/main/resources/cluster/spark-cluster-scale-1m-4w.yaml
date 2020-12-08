@@ -8,14 +8,38 @@ spec:
       - selector: 
          matchLabels:
            kubernetes.io/hostname: "bawa-virtualbox"
+    tolerations:
+      - key: "kubernetes.io/arch"
+        operator: "Equal"
+        effect: "NoSchedule"
+        value: "stackable-linux"
+      - key: "kubernetes.io/arch"
+        operator: "Equal"
+        effect: "NoExecute"
+        value: "stackable-linux"
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoSchedule"
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 300
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 300
     instances: 1
+    # no cpu defaults to take all
+    cores: "1"
+    # no memory defaults to take all
+    memory: "1000m"
     command:
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-master.sh"
     env:
 #      - name: SPARK_HOME
 #        value: "{{packageroot}}/spark-3.0.1-bin-hadoop2.7"
-      - name: SPARK_CONF_DIR
-        value: "{{configroot}}"
+      - name: "SPARK_CONF_DIR"
+        value: "{{configroot}}/conf"
 #      - name: "SPARK_MASTER_PORT"
 #        value: "7077"
         # do not fork processes
@@ -26,7 +50,27 @@ spec:
       - selector: 
          matchLabels:
            kubernetes.io/hostname: "bawa-virtualbox"
-    # customize here if needed
+    tolerations:
+      - key: "kubernetes.io/arch"
+        operator: "Equal"
+        effect: "NoSchedule"
+        value: "stackable-linux"
+      - key: "kubernetes.io/arch"
+        operator: "Equal"
+        effect: "NoExecute"
+        value: "stackable-linux"
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoSchedule"
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 300
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 300
+    # number of workers
     instances: 4 
     # no cpu defaults to take all
     cores: "1"
@@ -34,13 +78,13 @@ spec:
     memory: "1000m"
     # end of customization
     command:
-      # hostname and port provided from operator: start-slave.sh <MASTER_URL:MASTER_PORT>
+      # hostname and port provided from operator: start-slave.sh spark://MASTER_URL:MASTER_PORT
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-slave.sh"
     env:
 #      - name: SPARK_HOME
 #        value: "{{packageroot}}/spark-3.0.1-bin-hadoop2.7"
-      - name: SPARK_CONF_DIR
-        value: "{{configroot}}"
+      - name: "SPARK_CONF_DIR"
+        value: "{{configroot}}/conf"
 #      - name: "SPARK_MASTER_PORT"
 #        value: "7077"
         # do not fork processes

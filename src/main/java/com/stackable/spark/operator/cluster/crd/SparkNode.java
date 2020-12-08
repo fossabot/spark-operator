@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.KubernetesResource;
+import io.fabric8.kubernetes.api.model.Toleration;
 
 @JsonDeserialize(using = JsonDeserializer.None.class)
 public abstract class SparkNode implements KubernetesResource {
@@ -18,9 +19,10 @@ public abstract class SparkNode implements KubernetesResource {
 	private String podTypeName;
 
 	private Integer instances = 1;
-	private String memory;
-	private String cores;
+	private String memory = "1000m";
+	private String cores = "1";
 	private List<SparkSelector> selectors = new ArrayList<SparkSelector>();
+	private List<Toleration> tolerations = new ArrayList<Toleration>();
 	private List<String> command = new ArrayList<String>();
 	private List<String> args = new ArrayList<String>();
 	private List<EnvVar> env = new ArrayList<EnvVar>();
@@ -64,8 +66,16 @@ public abstract class SparkNode implements KubernetesResource {
 	public void setSelectors(List<SparkSelector> selectors) {
 		this.selectors = selectors;
 	}
-    
-    public List<String> getCommand() {
+	
+    public List<Toleration> getTolerations() {
+		return tolerations;
+	}
+
+	public void setTolerations(List<Toleration> tolerations) {
+		this.tolerations = tolerations;
+	}
+
+	public List<String> getCommand() {
         return command;
     }
 

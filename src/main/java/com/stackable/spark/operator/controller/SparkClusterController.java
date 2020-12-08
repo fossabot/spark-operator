@@ -438,12 +438,6 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		String cmName = createPodName(cluster, node) + "cm";
 		ConfigMapVolumeSource cms = new ConfigMapVolumeSourceBuilder().withName(cmName).build();
 		Volume vol = new VolumeBuilder().withName(cmName).withConfigMap(cms).build();
-		List<Toleration> tolerations = new ArrayList<Toleration>();
-		tolerations.add( new TolerationBuilder().withNewEffect("NoSchedule").withKey("kubernetes.io/arch").withOperator("Equal").withValue("stackable-linux").build());
-		tolerations.add( new TolerationBuilder().withNewEffect("NoExecute").withKey("kubernetes.io/arch").withOperator("Equal").withValue("stackable-linux").build());
-		tolerations.add( new TolerationBuilder().withNewEffect("NoExecute").withKey("node.kubernetes.io/not-ready").withOperator("Exists").withTolerationSeconds(300L).build());
-		tolerations.add( new TolerationBuilder().withNewEffect("NoSchedule").withKey("node.kubernetes.io/unreachable").withOperator("Exists").build());
-		tolerations.add( new TolerationBuilder().withNewEffect("NoExecute").withKey("node.kubernetes.io/unreachable").withOperator("Exists").withTolerationSeconds(300L).build());
 
         return new PodBuilder()
                 .withNewMetadata()
@@ -458,7 +452,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
                   .endOwnerReference()
                 .endMetadata()
                 .withNewSpec()
-	                .withTolerations(tolerations)
+	                .withTolerations(node.getTolerations())
 	                // TODO: check for null / zero elements
 	                .withNodeSelector(node.getSelectors().get(0).getSelector().getMatchLabels())
 	                .withVolumes(vol)

@@ -64,6 +64,23 @@ spec:
                                   kubernetes.io/hostname:
                                     type: string
                     # end selector
+                    # tolerations
+                    tolerations: 
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                          operator:
+                            type: string 
+                          effect:
+                            type: string
+                          value:
+                            type: string
+                          tolerationSeconds:
+                            type: integer   
+                    # end tolerations
                     # command to be run for startup
                     command:
                       type: array
@@ -111,6 +128,23 @@ spec:
                                   kubernetes.io/hostname:
                                     type: string
                     # end selector
+                    # tolerations
+                    tolerations: 
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                          operator:
+                            type: string 
+                          effect:
+                            type: string
+                          value:
+                            type: string
+                          tolerationSeconds:
+                            type: integer   
+                    # end tolerations
                     # command to be run for startup
                     command:
                       type: array
