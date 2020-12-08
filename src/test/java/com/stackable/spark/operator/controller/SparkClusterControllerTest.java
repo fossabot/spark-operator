@@ -32,7 +32,7 @@ public class SparkClusterControllerTest {
 		
     	client = server.getClient();
     	informerFactory = client.informers();
-    	controller = new SparkClusterController(client, informerFactory, namespace, crdPath, resyncCycle);
+    	controller = new SparkClusterController(crdPath, resyncCycle);
     	informerFactory.startAllRegisteredInformers();
     }
 

@@ -13,6 +13,7 @@ import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.client.CustomResource;
 import io.fabric8.kubernetes.client.CustomResourceDoneable;
 import io.fabric8.kubernetes.client.CustomResourceList;
+import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
@@ -26,42 +27,44 @@ import io.fabric8.kubernetes.client.informers.cache.Lister;
 /**
  * Abstract CRD Controller to work with customize CRDs. Applies given CRD and orders events (add, update, delete)
  * in an blocking queue. CRDClass extending CustomResource and CRDClassList extending CustomResourceList required!
- * @param <CRDClass>
- * @param <CRDClassList>
+ * @param <CRDClass> - pojo extending CustomResource
+ * @param <CRDClassList> list version of pojo extending CustomResourceList
+ * @param <CRDClassDoneable> doneable extending CustomResourceDoneable
  */
 public abstract class AbstractCrdController<CRDClass extends CustomResource, 
 											CRDClassList extends CustomResourceList<CRDClass>,
 											CRDClassDoneable extends CustomResourceDoneable<CRDClass>>
 											implements Runnable {
+    private static final Logger logger = Logger.getLogger(AbstractCrdController.class.getName());
 	
-    public static final Logger logger = Logger.getLogger(AbstractCrdController.class.getName());
-	
-    public static final Integer WORKING_QUEUE_SIZE	= 1024;
+    private static final Integer WORKING_QUEUE_SIZE	= 1024;
 	
     protected BlockingQueue<String> blockingQueue;
 	
 	protected KubernetesClient client;
-	protected String namespace;
+	protected SharedInformerFactory informerFactory;
 	
 	protected SharedIndexInformer<CRDClass> crdSharedIndexInformer;
 	protected Lister<CRDClass> crdLister;
 	
     protected MixedOperation<CRDClass,CRDClassList,CRDClassDoneable,Resource<CRDClass, CRDClassDoneable>> crdClient; 
 	
+	protected String namespace;
 	protected String crdPath;
 	
 	@SuppressWarnings("unchecked")
-	public AbstractCrdController(
-		KubernetesClient client,
-		SharedInformerFactory informerFactory,
-		String namespace,
-		String crdPath,
-		Long resyncCycle) {
-		
-		this.client = client;
-		this.namespace = namespace;
+	public AbstractCrdController(String crdPath, Long resyncCycle) {
+		this.client = new DefaultKubernetesClient();
+        this.namespace = client.getNamespace();
+        
+        if (this.namespace == null) {
+        	this.namespace = "default";
+            //logger.debug("No namespace found via config, assuming " + namespace);
+        }
+
         this.blockingQueue = new ArrayBlockingQueue<>(WORKING_QUEUE_SIZE);
 
+        this.informerFactory = client.informers();
 		this.crdSharedIndexInformer = informerFactory.sharedIndexInformerForCustomResource(
 			getCrdContext(), 
         	(Class<CRDClass>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0], 
@@ -101,12 +104,21 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
     /**
      * Overwrite method to add more informers to be synced (e.g. pods)
      */
-    protected abstract void waitForAllInformersSynced();
+    protected void waitForAllInformersSynced() {
+		while (!crdSharedIndexInformer.hasSynced());
+		logger.info("AbstractCrdController informer initialized ... waiting for changes");
+    }
     
     /**
      * Waits until all informers are synced and waits for elements to be in the queue and runs process()
      */
     public void run() {
+    	// add informers
+		informerFactory.addSharedInformerEventListener(exception -> logger.fatal("Tip: missing/bad CRDs?\n" + exception));
+		
+		// start informers
+		informerFactory.startAllRegisteredInformers();
+		
         // wait until informers have synchronized
         waitForAllInformersSynced();
         // loop for synchronization
@@ -122,7 +134,7 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
                 CRDClass crd = crdLister.get(key.split("/")[1]);
 
                 if (crd == null) {
-                    return;
+                    continue;
                 }
 
                 process(crd);

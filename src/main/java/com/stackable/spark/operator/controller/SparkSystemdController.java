@@ -6,20 +6,13 @@ import com.stackable.spark.operator.systemd.SparkSystemd;
 import com.stackable.spark.operator.systemd.SparkSystemdDoneable;
 import com.stackable.spark.operator.systemd.SparkSystemdList;
 
-import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.base.CustomResourceDefinitionContext;
-import io.fabric8.kubernetes.client.informers.SharedInformerFactory;
 
 public class SparkSystemdController extends AbstractCrdController<SparkSystemd, SparkSystemdList, SparkSystemdDoneable> {
-	public static final Logger logger = Logger.getLogger(SparkSystemdController.class.getName());
+	private static final Logger logger = Logger.getLogger(SparkSystemdController.class.getName());
 	
-    public SparkSystemdController(
-    		KubernetesClient client,
-    		SharedInformerFactory informerFactory,
-    		String namespace,
-			String crdPath, 
-			Long resyncCycle) {
-		super(client, informerFactory, namespace, crdPath, resyncCycle);
+    public SparkSystemdController(String crdPath, Long resyncCycle) {
+		super(crdPath, resyncCycle);
 	}
 
 	@Override

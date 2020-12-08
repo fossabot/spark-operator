@@ -28,12 +28,10 @@ import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeBuilder;
-import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.dsl.base.CustomResourceDefinitionContext;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
-import io.fabric8.kubernetes.client.informers.SharedInformerFactory;
 import io.fabric8.kubernetes.client.informers.cache.Lister;
 
 /**
@@ -43,23 +41,17 @@ import io.fabric8.kubernetes.client.informers.cache.Lister;
  */
 public class SparkClusterController extends AbstractCrdController<SparkCluster, SparkClusterList, SparkClusterDoneable> {
 	
-    public static final Logger logger = Logger.getLogger(SparkClusterController.class.getName());
+    private static final Logger logger = Logger.getLogger(SparkClusterController.class.getName());
 
-    public static final String SPARK_CLUSTER_KIND 	= "SparkCluster";
+    private static final String SPARK_CLUSTER_KIND 	= "SparkCluster";
 
     private SharedIndexInformer<Pod> podInformer;
     private Lister<Pod> podLister;
     
     private SparkClusterState clusterState;
     
-	public SparkClusterController(
-		KubernetesClient client,
-		SharedInformerFactory informerFactory,
-		String namespace,
-		String crdPath,
-		Long resyncCycle) {
-
-		super(client, informerFactory, namespace, crdPath, resyncCycle);
+	public SparkClusterController(String crdPath, Long resyncCycle) {
+		super(crdPath, resyncCycle);
 		
         this.podInformer = informerFactory.sharedIndexInformerFor(Pod.class, PodList.class, resyncCycle);
         this.podLister = new Lister<>(podInformer.getIndexer(), namespace);
@@ -77,6 +69,12 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
             .withPlural("sparkclusters")
             .build();
     }
+    
+	@Override
+	protected void waitForAllInformersSynced() {
+		while (!crdSharedIndexInformer.hasSynced() || !podInformer.hasSynced());
+		logger.info("SparkCluster informer and pod informer initialized ... waiting for changes");
+	}
 	
 	/**
 	 * Register event handler for kubernetes pods
@@ -271,12 +269,6 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		}}
 	}
 	
-	@Override
-	protected void waitForAllInformersSynced() {
-		while (!crdSharedIndexInformer.hasSynced() || !podInformer.hasSynced());
-		logger.info("SparkCluster informer and pod informer initialized ... waiting for changes");
-	}
-    
 	/**
 	 * Create pods with regard to spec and current state
 	 * @param pods - list of available pods belonging to the given node
