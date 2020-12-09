@@ -29,7 +29,6 @@ import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeBuilder;
 import io.fabric8.kubernetes.client.dsl.Resource;
-import io.fabric8.kubernetes.client.dsl.base.CustomResourceDefinitionContext;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
 import io.fabric8.kubernetes.client.informers.cache.Lister;
@@ -61,15 +60,6 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
         registerPodEventHandler();
     }
 	
-    protected CustomResourceDefinitionContext getCrdContext() {
-        return new CustomResourceDefinitionContext.Builder()
-            .withVersion("v1")
-            .withScope("Namespaced")
-            .withGroup("spark.stackable.de")
-            .withPlural("sparkclusters")
-            .build();
-    }
-    
 	@Override
 	protected void waitForAllInformersSynced() {
 		while (!crdSharedIndexInformer.hasSynced() || !podInformer.hasSynced());

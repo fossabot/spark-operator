@@ -7,8 +7,6 @@ import com.stackable.spark.operator.application.SparkApplicationDoneable;
 import com.stackable.spark.operator.application.SparkApplicationList;
 import com.stackable.spark.operator.application.launcher.SparkApplicationLauncher;
 
-import io.fabric8.kubernetes.client.dsl.base.CustomResourceDefinitionContext;
-
 public class SparkApplicationController extends 
 	AbstractCrdController<SparkApplication, SparkApplicationList, SparkApplicationDoneable> {
 
@@ -22,15 +20,6 @@ public class SparkApplicationController extends
 		sparkApplicationLauncher = new SparkApplicationLauncher();
 	}
 
-    protected CustomResourceDefinitionContext getCrdContext() {
-        return new CustomResourceDefinitionContext.Builder()
-            .withVersion("v1")
-            .withScope("Namespaced")
-            .withGroup("spark.stackable.de")
-            .withPlural("sparkapplications")
-            .build();
-    }
-    
 	@Override
 	protected void waitForAllInformersSynced() {
 		while (!crdSharedIndexInformer.hasSynced());

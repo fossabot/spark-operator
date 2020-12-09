@@ -10,6 +10,7 @@ import java.util.concurrent.BlockingQueue;
 import org.apache.log4j.Logger;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
+import io.fabric8.kubernetes.api.model.apiextensions.v1.CustomResourceDefinition;
 import io.fabric8.kubernetes.client.CustomResource;
 import io.fabric8.kubernetes.client.CustomResourceDoneable;
 import io.fabric8.kubernetes.client.CustomResourceList;
@@ -28,8 +29,8 @@ import io.fabric8.kubernetes.client.informers.cache.Lister;
  * Abstract CRD Controller to work with customize CRDs. Applies given CRD and orders events (add, update, delete)
  * in an blocking queue. CRDClass extending CustomResource and CRDClassList extending CustomResourceList required!
  * @param <CRDClass> - pojo extending CustomResource
- * @param <CRDClassList> list version of pojo extending CustomResourceList
- * @param <CRDClassDoneable> doneable extending CustomResourceDoneable
+ * @param <CRDClassList> - list version of pojo extending CustomResourceList
+ * @param <CRDClassDoneable> - doneable extending CustomResourceDoneable
  */
 public abstract class AbstractCrdController<CRDClass extends CustomResource, 
 											CRDClassList extends CustomResourceList<CRDClass>,
@@ -40,7 +41,10 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
     private static final Integer WORKING_QUEUE_SIZE	= 1024;
 	
     protected BlockingQueue<String> blockingQueue;
-	
+    protected List<HasMetadata> crdMetadata;
+	protected String namespace;
+	protected String crdPath;
+    
 	protected KubernetesClient client;
 	protected SharedInformerFactory informerFactory;
 	
@@ -48,9 +52,6 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
 	protected Lister<CRDClass> crdLister;
 	
     protected MixedOperation<CRDClass,CRDClassList,CRDClassDoneable,Resource<CRDClass, CRDClassDoneable>> crdClient; 
-	
-	protected String namespace;
-	protected String crdPath;
 	
 	@SuppressWarnings("unchecked")
 	public AbstractCrdController(String crdPath, Long resyncCycle) {
@@ -61,12 +62,17 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
         	this.namespace = "default";
             //logger.debug("No namespace found via config, assuming " + namespace);
         }
+        
+        this.crdMetadata = loadYaml(crdPath);
 
         this.blockingQueue = new ArrayBlockingQueue<>(WORKING_QUEUE_SIZE);
 
         this.informerFactory = client.informers();
+        
+        CustomResourceDefinitionContext context = getCrdContext(crdMetadata);
+        
 		this.crdSharedIndexInformer = informerFactory.sharedIndexInformerForCustomResource(
-			getCrdContext(), 
+			context, 
         	(Class<CRDClass>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0], 
         	(Class<CRDClassList>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[1], 
         	resyncCycle
@@ -75,24 +81,54 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
 		this.crdLister = new Lister<>(crdSharedIndexInformer.getIndexer(), namespace);
 		
 		this.crdClient = client.customResources(
-			getCrdContext(),
+			context,
 	        (Class<CRDClass>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0], 
 	        (Class<CRDClassList>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[1],
 	        (Class<CRDClassDoneable>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[2]
 		); 
 		
         // initialize CRD -> should be one for each controller
-        createOrReplaceCRD(namespace, crdPath);
+        createOrReplaceCRD(namespace, crdMetadata);
 		
 		// register events handler
 		registerCrdEventHandler();
 	}
 	
 	/**
-	 * Provide CRD context for the required sharedIndexInformer
+	 * Build CRD context for the sharedIndexInformer or other operations from the CRD yaml spec
+	 * @param metaData - List<HasMetadata> with the CRD(s) for the controller
 	 * @return CRD context
 	 */
-	protected abstract CustomResourceDefinitionContext getCrdContext();
+	protected CustomResourceDefinitionContext getCrdContext(List<HasMetadata> metaData) {
+
+    	CustomResourceDefinitionContext.Builder builder = new CustomResourceDefinitionContext.Builder();
+    	// check metadata
+    	if(metaData.isEmpty()) {
+    		logger.warn("No metadata available - return null");
+    		return null;
+    	}
+    	else if(metaData.size() > 1) {
+        	logger.warn("multiple crds available ... using first one");
+        }
+    	
+		CustomResourceDefinition crd =  (CustomResourceDefinition)metaData.get(0);
+
+		// check spec
+		if(crd.getSpec().getVersions().isEmpty()) {
+			logger.warn("No versions available - return null");
+    		return null;
+		} 
+		else if(crd.getSpec().getVersions().size() > 1) {
+			logger.warn("multiple versions available ... using first one");
+		}
+		
+    	builder.withVersion(crd.getSpec().getVersions().get(0).getName());
+    	builder.withGroup(crd.getSpec().getGroup());
+    	builder.withScope(crd.getSpec().getScope());
+    	builder.withPlural(crd.getSpec().getNames().getPlural());
+    	
+        return builder.build();
+	}
 	
 	/**
 	 * Overwrite method to specify what should be done after the blocking queue has elements
@@ -109,13 +145,29 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
 		logger.info("AbstractCrdController informer initialized ... waiting for changes");
     }
     
+    protected List<HasMetadata> loadYaml(String path) {
+        InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(path);
+    	List<HasMetadata> result = client.load(is).get();
+    	return client.resourceList(result).inNamespace(namespace).get(); 
+    }
+    
+    /**
+     * Create or replace the CRD in the API Server
+     * @param namespace - given namespace
+     * @param metaData - List<HasMetadata> from the yaml file
+     * @return List<HasMetadata> of affected CRDs
+     */
+    protected List<HasMetadata> createOrReplaceCRD(String namespace, List<HasMetadata> metaData) {
+    	List<HasMetadata> result = client.resourceList(metaData).inNamespace(namespace).createOrReplace(); 
+    	return result;
+    }
+    
     /**
      * Waits until all informers are synced and waits for elements to be in the queue and runs process()
      */
     public void run() {
     	// add informers
 		informerFactory.addSharedInformerEventListener(exception -> logger.fatal("Tip: missing/bad CRDs?\n" + exception));
-		
 		// start informers
 		informerFactory.startAllRegisteredInformers();
 		
@@ -187,19 +239,6 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
         }
     }
     
-    /**
-     * Create or replace the CRD in the API Server
-     * @param namespace - given namespace
-     * @param path - path to the CRD yaml file
-     * @return
-     */
-    protected List<HasMetadata> createOrReplaceCRD(String namespace, String path) {
-        InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(path);
-    	List<HasMetadata> result = client.load(is).get();
-    	client.resourceList(result).inNamespace(namespace).createOrReplace(); 
-    	return result;
-    }
-
 	public KubernetesClient getClient() {
 		return client;
 	}

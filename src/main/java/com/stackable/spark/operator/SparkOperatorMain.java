@@ -2,8 +2,6 @@ package com.stackable.spark.operator;
 
 import java.io.FileNotFoundException;
 
-import org.apache.log4j.Logger;
-
 import com.stackable.spark.operator.controller.SparkApplicationController;
 import com.stackable.spark.operator.controller.SparkClusterController;
 import com.stackable.spark.operator.controller.SparkSystemdController;
@@ -14,7 +12,6 @@ import com.stackable.spark.operator.controller.SparkSystemdController;
  * mvn exec:java -Dexec.mainClass=com.stackable.spark.operator.SparkOperatorMain
  */
 public class SparkOperatorMain {
-	final static Logger logger = Logger.getLogger(SparkOperatorMain.class);
 	// 120 seconds
     public static long RESYNC_CYCLE = 120 * 1000L;
 

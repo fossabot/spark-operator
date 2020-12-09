@@ -33,9 +33,7 @@ public class SparkApplicationLauncher {
 			URL sparkHome = ClassLoader.getSystemResource("spark-3.0.1-bin-hadoop2.7");
 		
 			new SparkLauncher()
-				//.setSparkHome("/home/bawa/Downloads/krustlet/work/parcels/spark-3.0.1/spark-3.0.1-bin-hadoop2.7")
 				.setSparkHome(sparkHome.getPath())
-				//.setAppResource("/home/bawa/Downloads/krustlet/work/parcels/spark-3.0.1/spark-3.0.1-bin-hadoop2.7/examples/jars/spark-examples_2.12-3.0.1.jar")
 				.setAppResource(spec.getMainApplicationFile())	
 				.setMainClass(spec.getMainClass())
 				// TODO get host
