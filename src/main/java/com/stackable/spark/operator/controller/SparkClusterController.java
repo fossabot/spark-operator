@@ -11,10 +11,13 @@ import org.apache.log4j.Logger;
 import com.stackable.spark.operator.cluster.SparkCluster;
 import com.stackable.spark.operator.cluster.SparkClusterDoneable;
 import com.stackable.spark.operator.cluster.SparkClusterList;
+import com.stackable.spark.operator.cluster.crd.SparkClusterCommand;
+import com.stackable.spark.operator.cluster.crd.SparkClusterStatus;
 import com.stackable.spark.operator.cluster.crd.SparkNode;
 import com.stackable.spark.operator.common.type.PodStatus;
 import com.stackable.spark.operator.common.type.SparkClusterState;
 import com.stackable.spark.operator.common.type.SparkConfig;
+import com.stackable.spark.operator.common.type.SparkSystemdState;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
@@ -48,6 +51,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
     private Lister<Pod> podLister;
     
     private SparkClusterState clusterState;
+    private SparkSystemdState systemdState;
     
 	public SparkClusterController(String crdPath, Long resyncCycle) {
 		super(crdPath, resyncCycle);
@@ -56,6 +60,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
         this.podLister = new Lister<>(podInformer.getIndexer(), namespace);
 
         this.clusterState = SparkClusterState.INITIAL;
+        this.systemdState = SparkSystemdState.INITIAL;
         // register pods
         registerPodEventHandler();
     }
@@ -91,6 +96,81 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
         });
 	}
 
+	@Override
+	protected void process(SparkCluster cluster) {
+		boolean systemdInProgress = processSystemdStateMachine(cluster);
+		
+		// ignore cluster changes if systemd is working
+		if(systemdInProgress) return;
+		
+		processClusterStateMachine(cluster);
+	}
+
+	/**
+	 * Systemd state machine:
+	 * 
+	 */	
+	protected boolean processSystemdStateMachine(SparkCluster cluster) {
+		boolean ret = false;
+		switch(systemdState) {
+		case INITIAL: {
+			// return if no systemd is set
+			if(cluster.getSpec().getSystemd() == null || cluster.getSpec().getSystemd().isEmpty()) { 
+				return ret;
+			}
+			
+			logger.debug("[" + systemdState.toString() + "] cluster systemd: " + cluster.getSpec().getSystemd());
+			
+			systemdState = SparkSystemdState.STAGE_COMMAND;
+			// no break
+			//break;
+		}
+		case STAGE_COMMAND: {
+			// set staged command in status
+			SparkClusterStatus status = new SparkClusterStatus.Builder()
+				.withSingleStagedCommand(new SparkClusterCommand.Builder()
+					.withCommand(cluster.getSpec().getSystemd())
+					.build())
+				.build();
+
+			cluster.setStatus(status);
+			crdClient.updateStatus(cluster);
+			systemdState = SparkSystemdState.WAIT_FOR_COMMAND_RUNNING;
+			// no break
+			//break;
+		}
+		case WAIT_FOR_COMMAND_RUNNING: {
+			systemdState = SparkSystemdState.WAIT_FOR_COMMAND_FINISHED;
+			// wait until command is finished
+			//if(cluster.getStatus().getRunningCommand().getFinishedAt() == null)
+				return ret;
+			// no break
+			//break;
+		}
+		case WAIT_FOR_COMMAND_FINISHED: {
+			systemdState = SparkSystemdState.REMOVE_SYSTEMD;
+			// no break
+			//break;
+		}
+		case REMOVE_SYSTEMD: {
+			systemdState = SparkSystemdState.INITIAL;
+			// no break
+			//break;
+		}
+		
+		default:
+			break;
+		}
+
+		
+		// extract command
+		
+		// set command 
+		
+		// remove systemd entry 
+		return true;
+	}
+	
 	/**
 	 * Cluster state machine:
 	 * 
@@ -119,8 +199,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 	 *  		v							|
 	 *  	RECONCILE ----------------------+
 	 */
-	@Override
-	protected void process(SparkCluster cluster) {
+	protected void processClusterStateMachine(SparkCluster cluster) {
 		switch(clusterState) {
 		/**
 		 * INITIAL:
@@ -440,7 +519,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		                	//TODO: no ":" etc in withName
 			            	.withName("spark-3-0-1")
 			            	.withImage(cluster.getSpec().getImage())
-			            	.withCommand(node.getCommand())
+			            	.withCommand(node.getCommands())
 			            	.withArgs(node.getArgs())
 			                .addNewVolumeMount()
 			                	// TODO: replace hardcoded
@@ -549,7 +628,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 	
     private void adaptWorkerCommand(SparkCluster cluster, String leaderHostName) {
     	// adapt command in workers
-    	List<String> commands = cluster.getSpec().getWorker().getCommand();
+    	List<String> commands = cluster.getSpec().getWorker().getCommands();
     	// TODO: start-worker.sh? - adapt port
     	if(commands.size() == 1) {
     		String port = "7077";

@@ -23,7 +23,7 @@ public abstract class SparkNode implements KubernetesResource {
 	private String cores = "1";
 	private List<SparkSelector> selectors = new ArrayList<SparkSelector>();
 	private List<Toleration> tolerations = new ArrayList<Toleration>();
-	private List<String> command = new ArrayList<String>();
+	private List<String> commands = new ArrayList<String>();
 	private List<String> args = new ArrayList<String>();
 	private List<EnvVar> env = new ArrayList<EnvVar>();
 	
@@ -75,12 +75,12 @@ public abstract class SparkNode implements KubernetesResource {
 		this.tolerations = tolerations;
 	}
 
-	public List<String> getCommand() {
-        return command;
+	public List<String> getCommands() {
+        return commands;
     }
 
-    public void setCommand(List<String> command) {
-        this.command = command;
+    public void setCommands(List<String> commands) {
+        this.commands = commands;
     }
 
     public List<String> getCommandArgs() {

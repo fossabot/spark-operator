@@ -82,7 +82,7 @@ spec:
                             type: integer   
                     # end tolerations
                     # command to be run for startup
-                    command:
+                    commands:
                       type: array
                       items:
                         type: string
@@ -146,7 +146,7 @@ spec:
                             type: integer   
                     # end tolerations
                     # command to be run for startup
-                    command:
+                    commands:
                       type: array
                       items:
                         type: string
@@ -171,36 +171,41 @@ spec:
                 # metrics exposed or not
                 metrics:
                   type: boolean
+                systemd:
+                  type: string
             status:
               type: object
               properties:
-                runningCommand:
-                  type: object
-                  properties:
-                    command:
-                      type: string
-                    timeStamp:
-                      type: string
-                    startedAt:
-                      type: string
-                    finishedAt:
-                      type: string
-                    status:
-                      type: string
-                stagedCommand:
-                  type: object
-                  properties:
-                    command:
-                      type: string
-                    timeStamp:
-                      type: string
-                    startedAt:
-                      type: string
-                    finishedAt:
-                      type: string
-                    status:
-                      type: string
-      # print cluster state in kubectl get
+                runningCommands:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      command:
+                        type: string
+                      timeStamp:
+                        type: string
+                      startedAt:
+                        type: string
+                      finishedAt:
+                        type: string
+                      status:
+                        type: string
+                stagedCommands:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      command:
+                        type: string
+                      timeStamp:
+                        type: string
+                      startedAt:
+                        type: string
+                      finishedAt:
+                        type: string
+                      status:
+                        type: string
       additionalPrinterColumns:
         - name: Master
           type: integer

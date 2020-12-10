@@ -15,6 +15,15 @@ public class SparkClusterCommand implements KubernetesResource {
 	private String finishedAt;
 	private String status;
 	
+	public SparkClusterCommand(String command, String timeStamp, String startedAt, String finishedAt, String status) {
+		super();
+		this.command = command;
+		this.timeStamp = timeStamp;
+		this.startedAt = startedAt;
+		this.finishedAt = finishedAt;
+		this.status = status;
+	}
+
 	public String getCommand() {
 		return command;
 	}
@@ -53,6 +62,47 @@ public class SparkClusterCommand implements KubernetesResource {
 	
 	public void setStatus(String status) {
 		this.status = status;
+	}
+	
+	public static class Builder {
+		private String command;
+		private String timeStamp;
+		private String startedAt;
+		private String finishedAt;
+		private String status;
+		
+		public Builder withCommand(String command) {
+			this.command = command;
+			return this;
+		}
+
+		public Builder withTimeStamp(String timeStamp) {
+			this.timeStamp = timeStamp;
+			return this;
+		}
+        
+		public Builder withStartedAt(String startedAt) {
+			this.startedAt = startedAt;
+			return this;
+		}
+        
+		public Builder withFinishedAt(String finishedAt) {
+			this.finishedAt = finishedAt;
+			return this;
+		}
+		
+		public Builder withStatus(String status) {
+			this.status = status;
+			return this;
+		}
+        
+        public SparkClusterCommand build() {
+        	SparkClusterCommand clusterCommand =  new SparkClusterCommand(command, timeStamp, startedAt, finishedAt, status);
+        	validateObject(clusterCommand);
+            return clusterCommand;
+        }
+        
+        private void validateObject(SparkClusterCommand command) {}
 	}
 	
 }

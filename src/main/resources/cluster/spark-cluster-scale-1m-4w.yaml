@@ -33,7 +33,7 @@ spec:
     cores: "1"
     # no memory defaults to take all
     memory: "1000m"
-    command:
+    commands:
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-master.sh"
     env:
 #      - name: SPARK_HOME
@@ -77,7 +77,7 @@ spec:
     # no memory defaults to take all
     memory: "1000m"
     # end of customization
-    command:
+    commands:
       # hostname and port provided from operator: start-slave.sh spark://MASTER_URL:MASTER_PORT
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-slave.sh"
     env:

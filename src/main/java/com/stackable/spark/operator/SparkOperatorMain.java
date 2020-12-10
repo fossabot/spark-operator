@@ -14,20 +14,25 @@ import com.stackable.spark.operator.controller.SparkSystemdController;
 public class SparkOperatorMain {
 	// 120 seconds
     public static long RESYNC_CYCLE = 120 * 1000L;
+    
+    private static String CLUSTER_CRD_PATH = "cluster/spark-cluster-crd.yaml";
+	private static String SYSTEMD_CRD_PATH = "systemd/spark-systemd-crd.yaml";
+	private static String APPLICATION_CRD_PATH = "application/spark-application-crd.yaml";
 
     public static void main(String args[]) throws FileNotFoundException {
         SparkClusterController sparkClusterController = new SparkClusterController(
-			"cluster/spark-cluster-crd.yaml", 
+        	CLUSTER_CRD_PATH, 
 			RESYNC_CYCLE
         );
         
 		SparkSystemdController sparkSystemdController = new SparkSystemdController(
-			"systemd/spark-systemd-crd.yaml", 
+			SYSTEMD_CRD_PATH, 
+			CLUSTER_CRD_PATH,
 			RESYNC_CYCLE
 		);
         
         SparkApplicationController sparkApplicationController = new SparkApplicationController(
-			"application/spark-application-crd.yaml",
+			APPLICATION_CRD_PATH,
 			RESYNC_CYCLE
     	);
 
