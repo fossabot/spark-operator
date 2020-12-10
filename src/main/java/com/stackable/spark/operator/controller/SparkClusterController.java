@@ -465,31 +465,47 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
         	.configMaps()
         	.inNamespace(cluster.getMetadata().getNamespace())
         	.withName(cmName);
-
+        //
         // create entry for spark-env.sh
-        StringBuffer sb = new StringBuffer();
+        //
+        StringBuffer sbEnv = new StringBuffer();
         // only worker has required information to be set
         SparkNode worker = cluster.getSpec().getWorker();
-        Map<String,String> configFiles = new HashMap<String,String>();
+        Map<String,String> cmFiles = new HashMap<String,String>();
         // all known data in yaml and pojo
-        addToConfigFiles(configFiles, sb, SparkConfig.SPARK_WORKER_CORES, worker.getCores());
-        addToConfigFiles(configFiles, sb, SparkConfig.SPARK_WORKER_MEMORY, worker.getMemory());
-        //addToConfigFiles(configFiles, sb, SparkConfig.SPARK_MASTER_HOST, "");
-
-        configFiles.put("spark-env.sh", sb.toString());
+        addToSparkEnv(sbEnv, SparkConfig.SPARK_WORKER_CORES, worker.getCores());
+        addToSparkEnv(sbEnv, SparkConfig.SPARK_WORKER_MEMORY, worker.getMemory());
+        cmFiles.put("spark-env.sh", sbEnv.toString());
+        //
+        // create entry for spark-defaults.conf
+        //
+        StringBuffer sbConf = new StringBuffer();
+        addToSparkConfig(node.getSparkConfiguration(), sbConf);
+        cmFiles.put("spark-defaults.conf", sbConf.toString());
         
+        // create config map
         configMapResource.createOrReplace(new ConfigMapBuilder()
         	.withNewMetadata()
             	.withName(cmName)
             .endMetadata()
-            .addToData(configFiles)
+            .addToData(cmFiles)
             .build());
     }
     
-    private void addToConfigFiles(Map<String,String> configFiles, StringBuffer sb, SparkConfig config, String value) {
+    private void addToSparkEnv(StringBuffer sb, SparkConfig config, String value) {
         if(value != null && !value.isEmpty()) {
         	sb.append(config.getEnv() + "=" + value + "\n");
         }
+    }
+    
+    private void addToSparkConfig(List<EnvVar> sparkConfiguration, StringBuffer sb) {
+    	for(EnvVar var: sparkConfiguration) {
+    		String name = var.getName();
+    		String value= var.getValue();
+    		if(name != null && !name.isEmpty() && value != null && !value.isEmpty()) {
+    			sb.append(name + " " + value + "\n");	
+    		}
+    	}
     }
     
 	private Pod createNewPod(SparkCluster cluster, SparkNode node) {

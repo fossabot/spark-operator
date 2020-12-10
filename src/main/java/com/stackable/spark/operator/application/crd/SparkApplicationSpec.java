@@ -25,6 +25,7 @@ public class SparkApplicationSpec implements KubernetesResource {
 	private SparkApplicationExecutor executor;
 	private List<String> dependencies = new ArrayList<String>();
 	private List<String> args = new ArrayList<String>();
+	private List<EnvVar> sparkConfiguration = new ArrayList<EnvVar>();
 	private List<EnvVar> env = new ArrayList<EnvVar>();
 	
 	public String getImage() {
@@ -123,6 +124,14 @@ public class SparkApplicationSpec implements KubernetesResource {
 		this.args = args;
 	}
 	
+	public List<EnvVar> getSparkConfiguration() {
+		return sparkConfiguration;
+	}
+
+	public void setSparkConfiguration(List<EnvVar> sparkConfiguration) {
+		this.sparkConfiguration = sparkConfiguration;
+	}
+
 	public List<EnvVar> getEnv() {
 		return env;
 	}

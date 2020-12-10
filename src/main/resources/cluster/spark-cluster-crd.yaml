@@ -91,6 +91,16 @@ spec:
                       type: array
                       items:
                         type: string
+                    # spark config
+                    sparkConfiguration:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name: 
+                            type: string
+                          value: 
+                            type: string
                     # environment variables set before startup
                     env:
                       type: array
@@ -155,6 +165,16 @@ spec:
                       type: array
                       items:
                         type: string
+                    # spark config
+                    sparkConfiguration:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name: 
+                            type: string
+                          value: 
+                            type: string
                     # environment variables set before startup
                     env:
                       type: array

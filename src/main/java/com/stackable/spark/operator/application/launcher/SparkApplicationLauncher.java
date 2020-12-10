@@ -12,13 +12,22 @@ import org.apache.spark.launcher.SparkLauncher;
 import com.stackable.spark.operator.application.SparkApplication;
 import com.stackable.spark.operator.application.crd.SparkApplicationSpec;
 import com.stackable.spark.operator.common.type.SparkConfig;
+import com.stackable.spark.operator.controller.SparkApplicationController;
 
+import io.fabric8.kubernetes.api.model.EnvVar;
+
+/**
+ * SparkApplicationLauncher starts a spark job via spark-submit.sh
+ */
 public class SparkApplicationLauncher {
-	//private static final Logger logger = Logger.getLogger(SparkApplicationLauncher.class.getName());
-	
 	private Set<SparkApplication> workingQueue = new HashSet<SparkApplication>();
 	
-	public void launch(SparkApplication app) {
+	/**
+	 * Launch the given application, transform config parameters, set executor and driver options etc.
+	 * @param app - spark application configured via yaml/json
+	 * @param controller - spark application controller to remove finished / failed applications
+	 */
+	public void launch(SparkApplication app, SparkApplicationController controller) {
 		// dont act on processed apps
 		if(workingQueue.contains(app)) {
 			return;
@@ -32,26 +41,40 @@ public class SparkApplicationLauncher {
 			
 			URL sparkHome = ClassLoader.getSystemResource("spark-3.0.1-bin-hadoop2.7");
 		
-			new SparkLauncher()
-				.setSparkHome(sparkHome.getPath())
-				.setAppResource(spec.getMainApplicationFile())	
-				.setMainClass(spec.getMainClass())
+			SparkLauncher launcher = new SparkLauncher();
+				launcher.setSparkHome(sparkHome.getPath());
+				launcher.setAppResource(spec.getMainApplicationFile());	
+				launcher.setMainClass(spec.getMainClass());
 				// TODO get host
-				.setMaster("spark://bawa-virtualbox:7077")
-				.setDeployMode(spec.getMode())
-				.setAppName(app.getMetadata().getName())
-				.setConf(SparkConfig.SPARK_DRIVER_CORES.getConfig(), spec.getDriver().getCores())
-				.setConf(SparkConfig.SPARK_DRIVER_MEMORY.getConfig(), spec.getDriver().getMemory())
-				.setConf(SparkConfig.SPARK_EXECUTOR_CORES.getConfig(), spec.getExecutor().getCores())
-				.setConf(SparkConfig.SPARK_EXECUTOR_MEMORY.getConfig(), spec.getExecutor().getMemory())
-				.addAppArgs(spec.getArgs().toArray(new String[spec.getArgs().size()]))
-				.startApplication(sparkAppListener);
+				launcher.setMaster(controller.getMasterNodeName(null));
+				launcher.setDeployMode(spec.getMode());
+				launcher.setAppName(app.getMetadata().getName());
+				// conf from app
+				launcher.setConf(SparkConfig.SPARK_DRIVER_CORES.getConfig(), spec.getDriver().getCores());
+				launcher.setConf(SparkConfig.SPARK_DRIVER_MEMORY.getConfig(), spec.getDriver().getMemory());
+				launcher.setConf(SparkConfig.SPARK_EXECUTOR_CORES.getConfig(), spec.getExecutor().getCores());
+				launcher.setConf(SparkConfig.SPARK_EXECUTOR_MEMORY.getConfig(), spec.getExecutor().getMemory());
+				// add other spark configuration
+				for(EnvVar var: spec.getSparkConfiguration()) {
+		    		String name = var.getName();
+		    		String value= var.getValue();
+		    		if(name != null && !name.isEmpty() && value != null && !value.isEmpty()) {
+		    			launcher.setConf(name, value);	
+		    		}
+				}
+				launcher.addAppArgs(spec.getArgs().toArray(new String[spec.getArgs().size()]));
+				launcher.startApplication(sparkAppListener);
 
 			Thread sparkAppListenerThread = new Thread(sparkAppListener);
 			sparkAppListenerThread.start();
 			
 			long timeout = 120;
 			countDownLatch.await(timeout, TimeUnit.SECONDS);
+			
+			// delete app when finished
+			// TODO: check for sleep / timer if repeating
+			workingQueue.remove(app);
+			controller.getCrdClient().delete(app);
 		}
 		catch(InterruptedException | IOException e) {
 			e.printStackTrace();

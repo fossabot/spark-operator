@@ -25,6 +25,7 @@ public abstract class SparkNode implements KubernetesResource {
 	private List<Toleration> tolerations = new ArrayList<Toleration>();
 	private List<String> commands = new ArrayList<String>();
 	private List<String> args = new ArrayList<String>();
+	private List<EnvVar> sparkConfiguration = new ArrayList<EnvVar>();
 	private List<EnvVar> env = new ArrayList<EnvVar>();
 	
     public String getPodTypeName() {
@@ -97,6 +98,14 @@ public abstract class SparkNode implements KubernetesResource {
 
 	public void setArgs(List<String> args) {
 		this.args = args;
+	}
+	
+	public List<EnvVar> getSparkConfiguration() {
+		return sparkConfiguration;
+	}
+
+	public void setSparkConfiguration(List<EnvVar> sparkConfiguration) {
+		this.sparkConfiguration = sparkConfiguration;
 	}
 
 	public List<EnvVar> getEnv() {

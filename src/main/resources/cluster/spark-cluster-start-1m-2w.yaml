@@ -35,6 +35,11 @@ spec:
     memory: "1000m"
     commands:
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-master.sh"
+    # spark-defaults.conf
+    sparkConfiguration:
+    - name: spark.executor.memory
+      value: 1024m
+    # spark-env.sh
     env:
 #      - name: SPARK_HOME
 #        value: "{{packageroot}}/spark-3.0.1-bin-hadoop2.7"
@@ -78,8 +83,13 @@ spec:
     memory: "1000m"
     # end of customization
     commands:
-      # hostname and port provided from operator: start-slave.sh spark://MASTER_URL:MASTER_PORT
+      # hostname and port provided from operator: start-slave.sh args: spark://MASTER_URL:MASTER_PORT
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-slave.sh"
+    # spark-defaults.conf
+    sparkConfiguration:
+    - name: spark.executor.memory
+      value: 1024m
+    # spark-env.sh
     env:
 #      - name: SPARK_HOME
 #        value: "{{packageroot}}/spark-3.0.1-bin-hadoop2.7"
