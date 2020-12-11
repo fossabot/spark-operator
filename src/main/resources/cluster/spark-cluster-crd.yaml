@@ -191,41 +191,26 @@ spec:
                 # metrics exposed or not
                 metrics:
                   type: boolean
-                systemd:
-                  type: string
             status:
               type: object
               properties:
-                runningCommands:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      command:
-                        type: string
-                      timeStamp:
-                        type: string
-                      startedAt:
-                        type: string
-                      finishedAt:
-                        type: string
-                      status:
-                        type: string
+                runningCommand:
+                  type: object
+                  properties:
+                    command:
+                      type: string
+                    timeStamp:
+                      type: string
+                    startedAt:
+                      type: string
+                    finishedAt:
+                      type: string
+                    status:
+                      type: string
                 stagedCommands:
                   type: array
                   items:
-                    type: object
-                    properties:
-                      command:
-                        type: string
-                      timeStamp:
-                        type: string
-                      startedAt:
-                        type: string
-                      finishedAt:
-                        type: string
-                      status:
-                        type: string
+                    type: string
       additionalPrinterColumns:
         - name: Master
           type: integer

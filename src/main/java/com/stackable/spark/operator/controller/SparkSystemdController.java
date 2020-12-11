@@ -1,17 +1,20 @@
 package com.stackable.spark.operator.controller;
 
-import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.log4j.Logger;
 
+import com.stackable.spark.operator.cluster.SparkCluster;
+import com.stackable.spark.operator.cluster.SparkClusterDoneable;
+import com.stackable.spark.operator.cluster.SparkClusterList;
+import com.stackable.spark.operator.cluster.crd.SparkClusterStatus;
 import com.stackable.spark.operator.systemd.SparkSystemd;
 import com.stackable.spark.operator.systemd.SparkSystemdDoneable;
 import com.stackable.spark.operator.systemd.SparkSystemdList;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
-import io.fabric8.kubernetes.api.model.apiextensions.v1.CustomResourceDefinition;
+import io.fabric8.kubernetes.client.dsl.MixedOperation;
+import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.dsl.base.CustomResourceDefinitionContext;
 
 /**
@@ -34,39 +37,37 @@ public class SparkSystemdController extends AbstractCrdController<SparkSystemd, 
 		logger.info("SparkSystemd informer initialized ... waiting for changes");
 	}
 	
-	@SuppressWarnings("unchecked")
 	@Override
 	protected void process(SparkSystemd systemd) {
 		logger.trace("Got CRD: " + systemd.getMetadata().getName());
 		// get cluster crd meta data
 		List<HasMetadata> clusterMetaData = loadYaml(controllerCrdPath);
-		CustomResourceDefinition crd = (CustomResourceDefinition) clusterMetaData.get(0);
 		CustomResourceDefinitionContext context = getCrdContext(clusterMetaData);
 		
-		Map<String, Object> map = 
-			client.customResource(context).get(
-				crd.getMetadata().getNamespace(),
-				systemd.getSpec().getSparkClusterReference()
-			);
+		// get custom crd client
+		MixedOperation<SparkCluster,SparkClusterList,SparkClusterDoneable,Resource<SparkCluster, SparkClusterDoneable>> 
+			clusterCrdClient = client.customResources(
+									context, 
+									SparkCluster.class, 
+									SparkClusterList.class, 
+									SparkClusterDoneable.class
+								); 
+		// get specific cluster via name
+		SparkCluster cluster = 
+			clusterCrdClient.inNamespace(namespace).withName(systemd.getSpec().getSparkClusterReference()).get();
 		
-		// signal systemd command to SparkClusterController
-		// change something
-		Object x = map.get("spec");
-		((Map<String,Object>)x).put("systemd", systemd.getSpec().getSystemdAction());
+		// set staged command in status
+		cluster.setStatus(new SparkClusterStatus.Builder()
+							.withSingleStagedCommand(systemd.getSpec().getSystemdAction())
+							.build()
+		);
 		
-		try {
-			client.customResource(context).edit(
-				crd.getMetadata().getNamespace(), 
-				systemd.getSpec().getSparkClusterReference(), 
-				map
-			);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-
-		// remove crd?
+		// update status
+		clusterCrdClient.updateStatus(cluster);
+		
+		// remove systemd crd?
 		if(crdClient.inNamespace(namespace).withName(systemd.getMetadata().getName()).delete()) {
-			logger.debug("deleted: " + systemd.getMetadata().getName());
+			logger.trace("deleted systemd crd: " + systemd.getMetadata().getName() + " with action: " + systemd.getSpec().getSystemdAction());
 		}
 	}
 

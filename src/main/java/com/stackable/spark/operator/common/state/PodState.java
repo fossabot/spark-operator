@@ -1,6 +1,6 @@
-package com.stackable.spark.operator.common.type;
+package com.stackable.spark.operator.common.state;
 
-public enum PodStatus {
+public enum PodState {
 	/** 
 	 * PodPending means the pod has been accepted by the system, but one or more of the containers
 	 * has not been started. This includes time before being bound to a node, as well as time spent
@@ -28,13 +28,13 @@ public enum PodStatus {
 	 */
 	UNKNOWN("Unknown");
 
-	private String status;
+	private String state;
 	
-	PodStatus(String status) {
-		this.status = status;
+	PodState(String state) {
+		this.state = state;
 	}
 	
 	public String toString() {
-		return status;
+		return state;
 	}
 }

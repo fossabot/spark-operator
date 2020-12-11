@@ -8,6 +8,7 @@ import com.stackable.spark.operator.application.SparkApplication;
 import com.stackable.spark.operator.application.SparkApplicationDoneable;
 import com.stackable.spark.operator.application.SparkApplicationList;
 import com.stackable.spark.operator.application.launcher.SparkApplicationLauncher;
+import com.stackable.spark.operator.cluster.crd.SparkNodeMaster;
 import com.stackable.spark.operator.common.type.SparkConfig;
 
 import io.fabric8.kubernetes.api.model.Container;
@@ -40,6 +41,11 @@ public class SparkApplicationController extends
 		sparkApplicationLauncher.launch(app, this);
 	}
 	
+	/**
+	 * Return master node name and port for given cluster
+	 * @param clusterName - name of cluster definiton
+	 * @return spark master host name
+	 */
 	public String getMasterNodeName(String clusterName) {
 		PodList podList = client.pods().inNamespace(namespace).list();
 		
@@ -55,17 +61,25 @@ public class SparkApplicationController extends
 				continue;
 			}
 			
+			// has nodename?
 			String nodeName = pod.getSpec().getNodeName();
 			if( nodeName == null ) {
 				continue;
 			}
 			
+			// is master?
+			if(!pod.getMetadata().getName().contains(SparkNodeMaster.POD_TYPE)) {
+				continue;
+			}
+			
+			// has container?
 			if(pod.getSpec().getContainers().size() == 0) {
 				continue;
 			}
 			
 			String port = "7077";
 			
+			// has SPARK_MASTER_PORT?
 			for(Container container: pod.getSpec().getContainers()) {
 				if(container.getEnv().size() == 0) continue;
 				

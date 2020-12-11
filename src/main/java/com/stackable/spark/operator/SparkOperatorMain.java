@@ -13,7 +13,7 @@ import com.stackable.spark.operator.controller.SparkSystemdController;
  */
 public class SparkOperatorMain {
 	// 120 seconds
-    public static long RESYNC_CYCLE = 120 * 1000L;
+    public static long RESYNC_CYCLE = 300 * 1000L;
     
     private static String CLUSTER_CRD_PATH = "cluster/spark-cluster-crd.yaml";
 	private static String SYSTEMD_CRD_PATH = "systemd/spark-systemd-crd.yaml";

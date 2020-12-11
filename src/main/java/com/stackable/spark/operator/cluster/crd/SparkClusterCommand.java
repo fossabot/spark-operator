@@ -1,19 +1,25 @@
 package com.stackable.spark.operator.cluster.crd;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import io.fabric8.kubernetes.api.model.KubernetesResource;
 
 @JsonDeserialize(using = JsonDeserializer.None.class)
+@JsonInclude(Include.NON_NULL)
 public class SparkClusterCommand implements KubernetesResource {
 	private static final long serialVersionUID = -8101216638321166890L;
 
+	// preset for status update operation
 	private String command;
 	private String timeStamp;
 	private String startedAt;
 	private String finishedAt;
 	private String status;
+	
+	public SparkClusterCommand() {}
 	
 	public SparkClusterCommand(String command, String timeStamp, String startedAt, String finishedAt, String status) {
 		super();

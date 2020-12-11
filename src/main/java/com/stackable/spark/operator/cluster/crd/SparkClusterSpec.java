@@ -12,7 +12,6 @@ public class SparkClusterSpec implements KubernetesResource {
 	private SparkNodeMaster master;
 	private SparkNodeWorker worker;
 	private String image;
-	private String systemd;
     private Boolean metrics;
 	
 	public SparkNodeMaster getMaster() {
@@ -39,14 +38,6 @@ public class SparkClusterSpec implements KubernetesResource {
 		this.image = image;
 	}
 	
-	public String getSystemd() {
-		return systemd;
-	}
-
-	public void setSystemd(String systemd) {
-		this.systemd = systemd;
-	}
-
 	public Boolean getMetrics() {
 		return metrics;
 	}

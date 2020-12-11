@@ -1,4 +1,4 @@
-package com.stackable.spark.operator.common.type;
+package com.stackable.spark.operator.common.state;
 
 public enum SparkClusterState {
 	/**
