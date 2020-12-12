@@ -17,13 +17,15 @@ public class SparkClusterStatus extends CustomResourceDefinitionStatus {
 	
 	private SparkClusterCommand runningCommand;
 	private List<String> stagedCommands;
+	private String deployedImage;
 	
 	public SparkClusterStatus() {}
 	
-	public SparkClusterStatus(SparkClusterCommand runningCommand, List<String> stagedCommands) {
+	public SparkClusterStatus(SparkClusterCommand runningCommand, List<String> stagedCommands, String deployedImage) {
 		super();
 		this.runningCommand = runningCommand;
 		this.stagedCommands = stagedCommands;
+		this.deployedImage = deployedImage;
 	}
 
 	public SparkClusterCommand getRunningCommand() {
@@ -42,9 +44,22 @@ public class SparkClusterStatus extends CustomResourceDefinitionStatus {
 		this.stagedCommands = stagedCommands;
 	}
 	
+	public void setRunningCommand(SparkClusterCommand runningCommand) {
+		this.runningCommand = runningCommand;
+	}
+
+	public String getDeployedImage() {
+		return deployedImage;
+	}
+
+	public void setDeployedImage(String deployedImage) {
+		this.deployedImage = deployedImage;
+	}
+
 	public static class Builder {
 		private SparkClusterCommand runningCommand;
 		private List<String> stagedCommands;
+		private String deployedImage;
 		
         public Builder withRunningCommands(SparkClusterCommand runningCommand) {
         	this.runningCommand = runningCommand;
@@ -68,9 +83,13 @@ public class SparkClusterStatus extends CustomResourceDefinitionStatus {
         	this.stagedCommands.add(stagedCommand);
         	return this;
         }
+        public Builder withDeployedImage(String deployedImage) {
+        	this.deployedImage = deployedImage;
+        	return this;
+        }
         
         public SparkClusterStatus build() {
-        	SparkClusterStatus status =  new SparkClusterStatus(runningCommand, stagedCommands);
+        	SparkClusterStatus status =  new SparkClusterStatus(runningCommand, stagedCommands, deployedImage);
         	validateObject(status);
             return status;
         }

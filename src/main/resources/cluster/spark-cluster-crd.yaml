@@ -211,6 +211,8 @@ spec:
                   type: array
                   items:
                     type: string
+                deployedImage:
+                    type: string
       additionalPrinterColumns:
         - name: Master
           type: integer
