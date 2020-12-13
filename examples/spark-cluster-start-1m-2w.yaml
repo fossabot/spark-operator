@@ -37,8 +37,8 @@ spec:
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-master.sh"
     # spark-defaults.conf
     sparkConfiguration:
-    - name: spark.executor.memory
-      value: 1024m
+    - name: spark.authenticate
+      value: "true"
     - name: "spark.authenticate.secret"
       value: "stackable_secret" 
     # spark-env.sh
@@ -91,6 +91,8 @@ spec:
     sparkConfiguration:
     - name: "spark.executor.memory"
       value: "1024m"
+    - name: spark.authenticate
+      value: "true"
     - name: "spark.authenticate.secret"
       value: "stackable_secret" 
     # spark-env.sh

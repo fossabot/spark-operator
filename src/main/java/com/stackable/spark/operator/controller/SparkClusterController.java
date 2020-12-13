@@ -381,6 +381,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 	     * Watch the cluster state and act if spec != state
 	     */
 		case RECONCILE: {
+			logger.debug(String.format("[%s]", clusterState.toString()));
 			break;
 		}}
 	}

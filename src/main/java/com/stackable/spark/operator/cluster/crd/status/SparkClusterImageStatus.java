@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.stackable.spark.operator.cluster.crd.status.SparkClusterCommand.Builder;
 
 import io.fabric8.kubernetes.api.model.KubernetesResource;
 
