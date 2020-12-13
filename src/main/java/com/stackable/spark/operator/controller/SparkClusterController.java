@@ -108,31 +108,52 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		}
 	}
 	
+	/**
+	 * Systemd state machine:
+	 * 			|	
+	 * 			+<----------------------------------+
+	 * 			v									^
+	 * 		SYSTEMD_INITIAL---------------------+	|
+	 * 			|								^	|
+	 * 			v								|	|
+	 * 	 	SYSTEMD_UPDATE						|	|
+	 * 			|								|	|
+	 * 			v								|	|
+	 *  	SYSTEMD_WAIT_FOR_IMAGE_UPDATED------+-->+
+	 *		  	|								|	^
+	 *			v								|	|
+	 * 		SYSTEMD_RESTART	<-------------------+	|
+	 * 			|									|
+	 * 			v									|
+ 	 *  	SYSTEMD_WAIT_FOR_JOBS_FINISHED			|
+ 	 *  		|									|
+ 	 *  		v									|
+	 * 		SYSTEMD_WAIT_FOR_PODS_DELETED-----------+
+	 */
 	private boolean processSystemdStateMachine(SparkCluster cluster) {
 		boolean systemdInProgress = false;
 		// check if systemd required -> check status for staged or running command
 		if(cluster.getStatus() == null) return systemdInProgress;
 		
-		// command running
+		// command running: not status not null, command not null, action not finished
 		if(cluster.getStatus().getRunningCommand() != null && 
 			cluster.getStatus().getRunningCommand().getCommand() != null &&
 			!cluster.getStatus().getRunningCommand().getStatus().equals(SparkSystemdActionState.FINISHED.toString())) {
-			// do nothing
+			// skip
 		}
 		// command staged
 		else if(cluster.getStatus().getStagedCommands().size() != 0) {
-			SparkSystemdAction action = getSystemdStatusCommand(cluster.getStatus().getStagedCommands());
-			
+			SparkSystemdAction action = getSystemdStagedCommand(cluster.getStatus().getStagedCommands());
 			// check for state action
 			if(action == SparkSystemdAction.NONE) {
 				logger.warn("unidentified systemd action - continue with reconcilation");
 				return systemdInProgress;
 			}
-			else if(action == SparkSystemdAction.RESTART && systemdState == SparkSystemdState.SYSTEMD_INITIAL) {
+			else if(action == SparkSystemdAction.RESTART) {
 				systemdInProgress = true;
 				systemdState = SparkSystemdState.SYSTEMD_RESTART;
 			}
-			else if(action == SparkSystemdAction.UPDATE && systemdState == SparkSystemdState.SYSTEMD_INITIAL) {
+			else if(action == SparkSystemdAction.UPDATE) {
 				systemdInProgress = true;
 				systemdState = SparkSystemdState.SYSTEMD_UPDATE;
 			}
@@ -140,8 +161,18 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		
 		switch(systemdState) {
 		case SYSTEMD_INITIAL: {
-			// skip
 			break;
+		}
+		case SYSTEMD_UPDATE: {
+			logger.debug(String.format("[%s]", systemdState.toString()));
+			// TODO: wait for jobs to be finished
+			// TODO: wait for new image to arrive (new clusterspec)
+			systemdState = SparkSystemdState.SYSTEMD_WAIT_FOR_IMAGE_UPDATED;
+		}
+		case SYSTEMD_WAIT_FOR_IMAGE_UPDATED: {
+			logger.debug(String.format("[%s]", systemdState.toString()));
+			systemdState = SparkSystemdState.SYSTEMD_RESTART;
+			
 		}
 		case SYSTEMD_RESTART: {
 			logger.debug(String.format("[%s]", systemdState.toString()));
@@ -161,17 +192,12 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 			crdClient.updateStatus(cluster);
 			
 			deletePods(cluster);
-			systemdState = SparkSystemdState.SYSTEMD_WAIT_FOR_PODS_DELETED;
+			systemdState = SparkSystemdState.SYSTEMD_WAIT_FOR_JOBS_FINISHED;
 			break;
 		}
-		case SYSTEMD_UPDATE: {
-			logger.debug(String.format("[%s]", systemdState.toString()));
-			// TODO: wait for jobs to be finished
-			// TODO: wait for new image to arrive (new clusterspec)
-			
-			//deletePods(cluster);
-			//systemdState = SparkSystemdState.SYSTEMD_WAIT_FOR_PODS_DELETED;
-			break;
+		case SYSTEMD_WAIT_FOR_JOBS_FINISHED: {
+			//logger.debug(String.format("[%s]", systemdState.toString()));
+			systemdState = SparkSystemdState.SYSTEMD_WAIT_FOR_PODS_DELETED;
 		}
 		case SYSTEMD_WAIT_FOR_PODS_DELETED: {
 			logger.debug(String.format("[%s]", systemdState.toString()));
@@ -182,7 +208,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 				// stop and wait
 				break;
 			}
-			// set status running command to finished, set finished timestamp
+			// set status running command to finished, set finished timestamp and update 
 			SparkClusterCommand runningCommand = cluster.getStatus().getRunningCommand();
 			runningCommand.setStatus(SparkSystemdActionState.FINISHED.toString());
 			runningCommand.setFinishedAt(String.valueOf(System.currentTimeMillis()));
@@ -237,6 +263,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		case INITIAL: {
 			logger.debug(String.format("[%s]", clusterState.toString()));
 			clusterState = SparkClusterState.CREATE_SPARK_MASTER;
+			// TODO: add spark image (deployedImage) to status for systemd update?
 			// no break required
 			// break;
 		}
@@ -265,8 +292,9 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 	     */
 		case WAIT_FOR_MASTER_HOST_NAME: {
 			// TODO: multiple master?
-			if(reconcile(cluster) == SparkClusterState.CREATE_SPARK_WORKER) {
-				// ignore
+			if(reconcile(cluster) == SparkClusterState.CREATE_SPARK_MASTER) {
+				clusterState = SparkClusterState.CREATE_SPARK_MASTER;
+				break;
 			}
         	
         	SparkNode master = cluster.getSpec().getMaster();
@@ -289,8 +317,9 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 	     * Wait before the master is configured and running before spawning workers
 	     */
 		case WAIT_FOR_MASTER_RUNNING: {
-			if(reconcile(cluster) == SparkClusterState.CREATE_SPARK_WORKER) {
-				// ignore
+			if(reconcile(cluster) == SparkClusterState.CREATE_SPARK_MASTER) {
+				clusterState = SparkClusterState.CREATE_SPARK_MASTER;
+				break;
 			}
 
 			// TODO: multiple master?
@@ -738,16 +767,20 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		return output;
 	}
 	
-	private SparkSystemdAction getSystemdStatusCommand(List<String> commands) {
-		if(commands.size() == 0) return SparkSystemdAction.NONE;
-		
-		String com = commands.get(0);
-		
-		for (SparkSystemdAction action : SparkSystemdAction.values()) { 
-			if(action.toString().equals(com.toUpperCase()))
-				return action;
+	/**
+	 * Retrieve first staged status command
+	 * @param commands - list of staged commands
+	 * @return SparkSystemAction in staged command (e.g. RESTART, UPDATE)
+	 */
+	private SparkSystemdAction getSystemdStagedCommand(List<String> commands) {
+		if(commands.size() != 0) {
+			String com = commands.get(0);
+			
+			for (SparkSystemdAction action : SparkSystemdAction.values()) { 
+				if(action.toString().equals(com.toUpperCase()))
+					return action;
+			}
 		}
-		
 		return SparkSystemdAction.NONE;
 	}
 	
