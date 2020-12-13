@@ -1,7 +1,7 @@
 package com.stackable.spark.operator.cluster;
 
-import com.stackable.spark.operator.cluster.crd.SparkClusterSpec;
-import com.stackable.spark.operator.cluster.crd.SparkClusterStatus;
+import com.stackable.spark.operator.cluster.crd.spec.SparkClusterSpec;
+import com.stackable.spark.operator.cluster.crd.status.SparkClusterStatus;
 
 import io.fabric8.kubernetes.client.CustomResource;
 

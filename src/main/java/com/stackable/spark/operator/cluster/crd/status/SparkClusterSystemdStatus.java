@@ -1,4 +1,4 @@
-package com.stackable.spark.operator.cluster.crd;
+package com.stackable.spark.operator.cluster.crd.status;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -8,24 +8,22 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
-import io.fabric8.kubernetes.api.model.apiextensions.v1.CustomResourceDefinitionStatus;
+import io.fabric8.kubernetes.api.model.KubernetesResource;
 
 @JsonDeserialize(using = JsonDeserializer.None.class)
 @JsonInclude(Include.NON_NULL)
-public class SparkClusterStatus extends CustomResourceDefinitionStatus {
-	private static final long serialVersionUID = -948085681809118449L;
+public class SparkClusterSystemdStatus implements KubernetesResource {
+	private static final long serialVersionUID = 7259902757939136149L;
 	
 	private SparkClusterCommand runningCommand;
 	private List<String> stagedCommands;
-	private String deployedImage;
 	
-	public SparkClusterStatus() {}
+	public SparkClusterSystemdStatus() {}
 	
-	public SparkClusterStatus(SparkClusterCommand runningCommand, List<String> stagedCommands, String deployedImage) {
+	public SparkClusterSystemdStatus(SparkClusterCommand runningCommand, List<String> stagedCommands) {
 		super();
 		this.runningCommand = runningCommand;
 		this.stagedCommands = stagedCommands;
-		this.deployedImage = deployedImage;
 	}
 
 	public SparkClusterCommand getRunningCommand() {
@@ -48,18 +46,9 @@ public class SparkClusterStatus extends CustomResourceDefinitionStatus {
 		this.runningCommand = runningCommand;
 	}
 
-	public String getDeployedImage() {
-		return deployedImage;
-	}
-
-	public void setDeployedImage(String deployedImage) {
-		this.deployedImage = deployedImage;
-	}
-
 	public static class Builder {
 		private SparkClusterCommand runningCommand;
 		private List<String> stagedCommands;
-		private String deployedImage;
 		
         public Builder withRunningCommands(SparkClusterCommand runningCommand) {
         	this.runningCommand = runningCommand;
@@ -83,18 +72,13 @@ public class SparkClusterStatus extends CustomResourceDefinitionStatus {
         	this.stagedCommands.add(stagedCommand);
         	return this;
         }
-        public Builder withDeployedImage(String deployedImage) {
-        	this.deployedImage = deployedImage;
-        	return this;
-        }
         
-        public SparkClusterStatus build() {
-        	SparkClusterStatus status =  new SparkClusterStatus(runningCommand, stagedCommands, deployedImage);
+        public SparkClusterSystemdStatus build() {
+        	SparkClusterSystemdStatus status = new SparkClusterSystemdStatus(runningCommand, stagedCommands);
         	validateObject(status);
             return status;
         }
         
-        private void validateObject(SparkClusterStatus status) {}
+        private void validateObject(SparkClusterSystemdStatus status) {}
 	}
-	
 }

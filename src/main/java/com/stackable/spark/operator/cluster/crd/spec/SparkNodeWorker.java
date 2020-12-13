@@ -1,4 +1,4 @@
-package com.stackable.spark.operator.cluster.crd;
+package com.stackable.spark.operator.cluster.crd.spec;
 
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;

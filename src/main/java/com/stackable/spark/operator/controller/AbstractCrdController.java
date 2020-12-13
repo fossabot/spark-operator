@@ -123,6 +123,7 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
 		}
 		
     	builder.withVersion(crd.getSpec().getVersions().get(0).getName());
+    	builder.withKind(crd.getSpec().getNames().getKind());
     	builder.withGroup(crd.getSpec().getGroup());
     	builder.withScope(crd.getSpec().getScope());
     	builder.withPlural(crd.getSpec().getNames().getPlural());

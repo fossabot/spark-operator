@@ -1,4 +1,4 @@
-package com.stackable.spark.operator.cluster.crd;
+package com.stackable.spark.operator.cluster.crd.spec;
 
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
@@ -13,6 +13,7 @@ public class SparkClusterSpec implements KubernetesResource {
 	private SparkNodeWorker worker;
 	private String image;
     private Boolean metrics;
+    private String secret;
 	
 	public SparkNodeMaster getMaster() {
 		return master;
@@ -46,4 +47,12 @@ public class SparkClusterSpec implements KubernetesResource {
 		this.metrics = metrics;
 	}
 
+	public String getSecret() {
+		return secret;
+	}
+
+	public void setSecret(String secret) {
+		this.secret = secret;
+	}
+	
 }

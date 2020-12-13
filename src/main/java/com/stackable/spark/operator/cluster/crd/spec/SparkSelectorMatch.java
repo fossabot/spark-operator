@@ -1,4 +1,4 @@
-package com.stackable.spark.operator.cluster.crd;
+package com.stackable.spark.operator.cluster.crd.spec;
 
 import java.util.HashMap;
 import java.util.Map;

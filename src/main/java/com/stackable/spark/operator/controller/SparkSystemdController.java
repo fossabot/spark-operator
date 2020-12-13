@@ -7,7 +7,8 @@ import org.apache.log4j.Logger;
 import com.stackable.spark.operator.cluster.SparkCluster;
 import com.stackable.spark.operator.cluster.SparkClusterDoneable;
 import com.stackable.spark.operator.cluster.SparkClusterList;
-import com.stackable.spark.operator.cluster.crd.SparkClusterStatus;
+import com.stackable.spark.operator.cluster.crd.status.SparkClusterStatus;
+import com.stackable.spark.operator.cluster.crd.status.SparkClusterSystemdStatus;
 import com.stackable.spark.operator.systemd.SparkSystemd;
 import com.stackable.spark.operator.systemd.SparkSystemdDoneable;
 import com.stackable.spark.operator.systemd.SparkSystemdList;
@@ -57,10 +58,17 @@ public class SparkSystemdController extends AbstractCrdController<SparkSystemd, 
 			clusterCrdClient.inNamespace(namespace).withName(systemd.getSpec().getSparkClusterReference()).get();
 		
 		// set staged command in status
-		cluster.setStatus(new SparkClusterStatus.Builder()
+		SparkClusterStatus status = cluster.getStatus();
+		if(status == null) {
+			status = new SparkClusterStatus();
+		}
+		
+		status.setSystemd(new SparkClusterSystemdStatus.Builder()
 							.withSingleStagedCommand(systemd.getSpec().getSystemdAction())
 							.build()
-		);
+						 );
+		
+		cluster.setStatus(status);
 		
 		// update status
 		clusterCrdClient.updateStatus(cluster);

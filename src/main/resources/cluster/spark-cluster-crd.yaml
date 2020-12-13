@@ -191,28 +191,39 @@ spec:
                 # metrics exposed or not
                 metrics:
                   type: boolean
+                secret:
+                  type: string
+            # subresource status
             status:
               type: object
               properties:
-                runningCommand:
+                systemd:
                   type: object
                   properties:
-                    command:
+                    runningCommand:
+                      type: object
+                      properties:
+                        command:
+                          type: string
+                        timeStamp:
+                          type: string
+                        startedAt:
+                          type: string
+                        finishedAt:
+                          type: string
+                        status:
+                          type: string
+                    stagedCommands:
+                      type: array
+                      items:
+                        type: string
+                image:
+                  type: object
+                  properties:
+                    name:
                       type: string
-                    timeStamp:
+                    timestamp:
                       type: string
-                    startedAt:
-                      type: string
-                    finishedAt:
-                      type: string
-                    status:
-                      type: string
-                stagedCommands:
-                  type: array
-                  items:
-                    type: string
-                deployedImage:
-                    type: string
       additionalPrinterColumns:
         - name: Master
           type: integer

@@ -8,7 +8,7 @@ import com.stackable.spark.operator.application.SparkApplication;
 import com.stackable.spark.operator.application.SparkApplicationDoneable;
 import com.stackable.spark.operator.application.SparkApplicationList;
 import com.stackable.spark.operator.application.launcher.SparkApplicationLauncher;
-import com.stackable.spark.operator.cluster.crd.SparkNodeMaster;
+import com.stackable.spark.operator.cluster.crd.spec.SparkNodeMaster;
 import com.stackable.spark.operator.common.type.SparkConfig;
 
 import io.fabric8.kubernetes.api.model.Container;
