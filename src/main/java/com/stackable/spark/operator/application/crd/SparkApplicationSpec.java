@@ -21,6 +21,7 @@ public class SparkApplicationSpec implements KubernetesResource {
 	private String mode;
 	private String restartPolicy;
 	private String imagePullPolicy;
+	private String secret;
 	private SparkApplicationDriver driver;
 	private SparkApplicationExecutor executor;
 	private List<String> dependencies = new ArrayList<String>();
@@ -92,6 +93,14 @@ public class SparkApplicationSpec implements KubernetesResource {
 		this.imagePullPolicy = imagePullPolicy;
 	}
 	
+	public String getSecret() {
+		return secret;
+	}
+
+	public void setSecret(String secret) {
+		this.secret = secret;
+	}
+
 	public SparkApplicationDriver getDriver() {
 		return driver;
 	}

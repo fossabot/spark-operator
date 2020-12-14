@@ -101,7 +101,15 @@ public enum SparkConfig {
 	/**
 	 * to set how much total memory workers have to give executors (e.g. 1000m, 2g)
 	 */
-	SPARK_WORKER_MEMORY("SPARK_WORKER_MEMORY", "spark.worker.memory");
+	SPARK_WORKER_MEMORY("SPARK_WORKER_MEMORY", "spark.worker.memory"),
+	/**
+	 * set (true) to activate authentication
+	 */
+	SPARK_AUTHENTICATE("SPARK_AUTHENTICATE", "spark.authenticate"),
+	/**
+	 * set secret for authentication
+	 */
+	SPARK_AUTHENTICATE_SECRET("SPARK_AUTHENTICATE_SECRET", "spark.authenticate.secret");
 
 	private String env;
 	private String config;

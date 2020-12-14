@@ -60,6 +60,9 @@ spec:
                 # define image pull policy
                 imagePullPolicy:
                   type: string
+                # secret for authentication
+                secret:
+                  type: string
                 driver:
                   type: object
                   properties: 

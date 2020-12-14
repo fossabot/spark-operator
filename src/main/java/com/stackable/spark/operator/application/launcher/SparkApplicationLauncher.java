@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.log4j.Logger;
 import org.apache.spark.launcher.SparkLauncher;
 
 import com.stackable.spark.operator.application.SparkApplication;
@@ -20,6 +21,8 @@ import io.fabric8.kubernetes.api.model.EnvVar;
  * SparkApplicationLauncher starts a spark job via spark-submit.sh
  */
 public class SparkApplicationLauncher {
+    private static final Logger logger = Logger.getLogger(SparkApplicationLauncher.class.getName());
+    
 	private Set<SparkApplication> workingQueue = new HashSet<SparkApplication>();
 	
 	/**
@@ -40,6 +43,7 @@ public class SparkApplicationLauncher {
 			SparkApplicationListener sparkAppListener = new SparkApplicationListener(countDownLatch);
 			
 			URL sparkHome = ClassLoader.getSystemResource("spark-3.0.1-bin-hadoop2.7");
+			logger.debug("Start app: " + app.getMetadata().getName() + " - SPARK_HOME: " + sparkHome.getPath());
 		
 			SparkLauncher launcher = new SparkLauncher();
 				launcher.setSparkHome(sparkHome.getPath());
@@ -50,10 +54,16 @@ public class SparkApplicationLauncher {
 				launcher.setDeployMode(spec.getMode());
 				launcher.setAppName(app.getMetadata().getName());
 				// conf from app
-				launcher.setConf(SparkConfig.SPARK_DRIVER_CORES.getConfig(), spec.getDriver().getCores());
-				launcher.setConf(SparkConfig.SPARK_DRIVER_MEMORY.getConfig(), spec.getDriver().getMemory());
-				launcher.setConf(SparkConfig.SPARK_EXECUTOR_CORES.getConfig(), spec.getExecutor().getCores());
-				launcher.setConf(SparkConfig.SPARK_EXECUTOR_MEMORY.getConfig(), spec.getExecutor().getMemory());
+				if(spec.getDriver().getCores() != null)
+					launcher.setConf(SparkConfig.SPARK_DRIVER_CORES.getConfig(), spec.getDriver().getCores());
+				if(spec.getDriver().getMemory() != null)
+					launcher.setConf(SparkConfig.SPARK_DRIVER_MEMORY.getConfig(), spec.getDriver().getMemory());
+				if(spec.getExecutor().getCores() != null)
+					launcher.setConf(SparkConfig.SPARK_EXECUTOR_CORES.getConfig(), spec.getExecutor().getCores());
+				if(spec.getExecutor().getMemory() != null)
+					launcher.setConf(SparkConfig.SPARK_EXECUTOR_MEMORY.getConfig(), spec.getExecutor().getMemory());
+				if(spec.getSecret() != null)
+					launcher.setConf(SparkConfig.SPARK_AUTHENTICATE_SECRET.getConfig(), spec.getSecret());
 				// add other spark configuration
 				for(EnvVar var: spec.getSparkConfiguration()) {
 		    		String name = var.getName();
@@ -62,7 +72,9 @@ public class SparkApplicationLauncher {
 		    			launcher.setConf(name, value);	
 		    		}
 				}
-				launcher.addAppArgs(spec.getArgs().toArray(new String[spec.getArgs().size()]));
+				if(spec.getArgs().size() > 0)
+					launcher.addAppArgs(spec.getArgs().toArray(new String[spec.getArgs().size()]));
+				// start with listener
 				launcher.startApplication(sparkAppListener);
 
 			Thread sparkAppListenerThread = new Thread(sparkAppListener);

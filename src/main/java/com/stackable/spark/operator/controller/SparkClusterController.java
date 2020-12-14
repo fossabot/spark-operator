@@ -45,7 +45,6 @@ import io.fabric8.kubernetes.client.informers.cache.Lister;
  * Offer systemd functionality for start, stop and restart the cluster
  */
 public class SparkClusterController extends AbstractCrdController<SparkCluster, SparkClusterList, SparkClusterDoneable> {
-	
     private static final Logger logger = Logger.getLogger(SparkClusterController.class.getName());
 
     private SharedIndexInformer<Pod> podInformer;
@@ -133,8 +132,9 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 	private boolean processSystemdStateMachine(SparkCluster cluster) {
 		boolean systemdInProgress = false;
 		// check if systemd required -> check status for staged or running command
-		if(cluster.getStatus() == null) return systemdInProgress;
-		
+		if(cluster.getStatus() == null || cluster.getStatus().getSystemd() == null) { 
+			return systemdInProgress;
+		}
 		// command running: not status not null, command not null, action not finished
 		if(cluster.getStatus().getSystemd().getRunningCommand() != null && 
 			cluster.getStatus().getSystemd().getRunningCommand().getCommand() != null &&
@@ -166,7 +166,14 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		case SYSTEMD_UPDATE: {
 			logger.debug(String.format("[%s]", systemdState.toString()));
 			// TODO: wait for jobs to be finished
-			// TODO: wait for new image to arrive (new clusterspec)
+			// no new image arrived
+			if(cluster.getStatus().getImage().getName().equals(cluster.getSpec().getImage())) {
+				logger.warn("systemd update called but no new image(" + cluster.getSpec().getImage() + ") available -> abort!");
+				// reset state
+				systemdState = SparkSystemdState.SYSTEMD_INITIAL;
+				// TODO: remove systemd? 
+				break;
+			}
 			systemdState = SparkSystemdState.SYSTEMD_WAIT_FOR_IMAGE_UPDATED;
 		}
 		case SYSTEMD_WAIT_FOR_IMAGE_UPDATED: {
@@ -281,7 +288,11 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 			}
 			
 			status.setImage(
-				new SparkClusterImageStatus(cluster.getSpec().getImage(), String.valueOf(System.currentTimeMillis())));
+				new SparkClusterImageStatus(cluster.getSpec().getImage(), String.valueOf(System.currentTimeMillis()))
+			);
+			cluster.setStatus(status);
+			// update status
+			crdClient.updateStatus(cluster);
 			// no break required
 		}
 		/**
@@ -308,10 +319,12 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
         	List<Pod> masterPods = getPodsByNode(cluster, master);
 			// check for host name -> wait if not available
         	// TODO who is leader?
-        	String nodeName = getNodeNameFromLeader(masterPods);
-        	if(nodeName == null || nodeName.isEmpty()) {
+        	List<String> nodeName = getMasterNodeNames(masterPods);
+        	
+        	if(nodeName.size() == 0) {
         		break;
         	}
+        	
         	// create master config map 
         	createConfigMap(cluster, master);
     		
@@ -346,12 +359,13 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 			List<Pod> workerPods = getPodsByNode(cluster, worker);
 			
         	// check host name
-        	String leaderHostName = getNodeNameFromLeader(masterPods);
-        	if( leaderHostName == null || leaderHostName.isEmpty()) {
+        	List<String> masterNodeNames = getMasterNodeNames(masterPods);
+        	
+        	if( masterNodeNames.size() == 0) {
         		break;
         	}
         	// adapt command in workers
-        	adaptWorkerCommand(cluster, leaderHostName);
+        	adaptWorkerCommand(cluster, masterNodeNames);
 
         	// spin up workers
         	workerPods = createPods(workerPods, cluster, worker);
@@ -555,6 +569,11 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
         return cluster; 
     }
     
+    /**
+     * Create config map content for master / worker
+     * @param cluster - spark cluster
+     * @param node - spark master / worker
+     */
     private void createConfigMap(SparkCluster cluster, SparkNode node) {
     	String cmName = createPodName(cluster, node) + "cm";
     	
@@ -588,12 +607,23 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
             .build());
     }
     
+    /**
+     * Add spark environment variables to stringbuffer for spark-env.sh configuration
+     * @param sb - string buffer to add to
+     * @param config - key
+     * @param value - value
+     */
     private void addToSparkEnv(StringBuffer sb, SparkConfig config, String value) {
         if(value != null && !value.isEmpty()) {
         	sb.append(config.getEnv() + "=" + value + "\n");
         }
     }
     
+    /**
+     * Add to string buffer for spark configuration (spark-default.conf) in config map 
+     * @param sparkConfiguration - spark config given in specs
+     * @param sb - string buffer to add to
+     */
     private void addToSparkConfig(List<EnvVar> sparkConfiguration, StringBuffer sb) {
     	for(EnvVar var: sparkConfiguration) {
     		String name = var.getName();
@@ -604,8 +634,13 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
     	}
     }
     
+    /**
+     * Create pod for spark node
+     * @param cluster - spark cluster
+     * @param node - master or worker node
+     * @return pod create from specs
+     */
 	private Pod createNewPod(SparkCluster cluster, SparkNode node) {
-		// TODO: replace hardcoded -> one configmap per master / worker node each?
 		String cmName = createPodName(cluster, node) + "cm";
 		ConfigMapVolumeSource cms = new ConfigMapVolumeSourceBuilder().withName(cmName).build();
 		Volume vol = new VolumeBuilder().withName(cmName).withConfigMap(cms).build();
@@ -726,19 +761,25 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
      * @param pods - list of master pods
      * @return null or pod.spec.nodeName if available
      */
-    private String getNodeNameFromLeader(List<Pod> pods) {
+    private List<String> getMasterNodeNames(List<Pod> pods) {
     	// TODO: determine master leader
+    	List<String> nodeNames = new ArrayList<String>();
     	for(Pod pod : pods) {
     		String nodeName = pod.getSpec().getNodeName();
     		if(nodeName != null && !nodeName.isEmpty()) {
     			logger.debug(String.format("[%s] - got nodeName: %s", clusterState.toString(), nodeName));
-    			return nodeName;
+    			nodeNames.add(nodeName);
     		}
     	}
-    	return null;
+    	return nodeNames;
     }
 	
-    private void adaptWorkerCommand(SparkCluster cluster, String leaderHostName) {
+    /**
+     * Adapt worker starting command with master node names as argument
+     * @param cluster - spark cluster
+     * @param masterNodeNames - list of available master nodes
+     */
+    private void adaptWorkerCommand(SparkCluster cluster, List<String> masterNodeNames) {
     	// adapt command in workers
     	List<String> commands = cluster.getSpec().getWorker().getCommands();
     	// TODO: start-worker.sh? - adapt port
@@ -751,7 +792,14 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
     			}
     		}
     		
-    		String masterUrl = "spark://" + leaderHostName + ":" + port;
+    		StringBuffer sb = new StringBuffer();
+    		sb.append("spark://");
+    		for(int i = 0; i < masterNodeNames.size(); i++) {
+    			sb.append(masterNodeNames.get(i) + ":" + port);
+    			if(i < masterNodeNames.size() - 1) sb.append(",");
+    		}
+    		
+    		String masterUrl = sb.toString();
     		commands.add(masterUrl);
     		
     		logger.debug(String.format("[%s] - set worker MASTER_URL to: %s", clusterState.toString(), masterUrl));

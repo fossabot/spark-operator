@@ -11,12 +11,13 @@ spec:
   # cluster fire and forget -> no status checks possible via operator
   # client -> driver started locally needs to stay online to finish job
   mode: "client"
+  secret: "stackable_secret"
   driver:
     cores: "1"
     memory: "500m"
   executor:
     instances: 2
-    cores: "2"
+    cores: "1"
     memory: "1g"
 #  dependencies:
 #    - "jar1"

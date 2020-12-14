@@ -32,13 +32,15 @@ spec:
     # no cpu defaults to take all
     cores: "1"
     # no memory defaults to take all
-    memory: "1000m"
+    memory: "2g"
     commands:
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-master.sh"
     # spark-defaults.conf
     sparkConfiguration:
-    - name: spark.authenticate
+    # required for secret
+    - name: "spark.authenticate"
       value: "true"
+    # actual secret for secret
     - name: "spark.authenticate.secret"
       value: "stackable_secret" 
     # spark-env.sh
@@ -82,16 +84,14 @@ spec:
     # no cpu defaults to take all
     cores: "1"
     # no memory defaults to take all
-    memory: "1000m"
+    memory: "2g"
     # end of customization
     commands:
       # hostname and port provided from operator: start-slave.sh args: spark://MASTER_URL:MASTER_PORT
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-slave.sh"
     # spark-defaults.conf
     sparkConfiguration:
-    - name: "spark.executor.memory"
-      value: "1024m"
-    - name: spark.authenticate
+    - name: "spark.authenticate"
       value: "true"
     - name: "spark.authenticate.secret"
       value: "stackable_secret" 
