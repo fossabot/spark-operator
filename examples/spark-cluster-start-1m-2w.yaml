@@ -84,7 +84,7 @@ spec:
     # no cpu defaults to take all
     cores: "1"
     # no memory defaults to take all
-    memory: "2g"
+    memory: "4g"
     # end of customization
     commands:
       # hostname and port provided from operator: start-slave.sh args: spark://MASTER_URL:MASTER_PORT

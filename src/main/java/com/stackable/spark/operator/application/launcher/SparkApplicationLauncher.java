@@ -63,6 +63,8 @@ public class SparkApplicationLauncher {
 				if(spec.getExecutor().getMemory() != null)
 					launcher.setConf(SparkConfig.SPARK_EXECUTOR_MEMORY.getConfig(), spec.getExecutor().getMemory());
 				if(spec.getSecret() != null)
+					launcher.setConf(SparkConfig.SPARK_AUTHENTICATE.getConfig(), "true");
+				if(spec.getSecret() != null)
 					launcher.setConf(SparkConfig.SPARK_AUTHENTICATE_SECRET.getConfig(), spec.getSecret());
 				// add other spark configuration
 				for(EnvVar var: spec.getSparkConfiguration()) {

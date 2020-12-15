@@ -14,11 +14,11 @@ spec:
   secret: "stackable_secret"
   driver:
     cores: "1"
-    memory: "500m"
+    memory: "2g"
   executor:
     instances: 2
     cores: "1"
-    memory: "1g"
+    memory: "2g"
 #  dependencies:
 #    - "jar1"
   args:
