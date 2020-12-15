@@ -2,6 +2,8 @@ package com.stackable.spark.operator.common.type;
 
 public enum SparkSystemdAction {
 	NONE("NONE"),
+	STOP("STOP"),
+	START("START"),
 	RESTART("RESTART"),
 	UPDATE("UPDATE");
 

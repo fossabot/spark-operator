@@ -1,4 +1,4 @@
-package com.stackable.spark.operator.cluster.crd.status;
+package com.stackable.spark.operator.cluster.crd;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
@@ -12,22 +12,22 @@ import io.fabric8.kubernetes.api.model.apiextensions.v1.CustomResourceDefinition
 public class SparkClusterStatus extends CustomResourceDefinitionStatus {
 	private static final long serialVersionUID = -948085681809118449L;
 	
-	private SparkClusterSystemdStatus systemd;
-	private SparkClusterImageStatus image;
+	private SparkClusterStatusSystemd systemd;
+	private SparkClusterStatusImage image;
 	
-	public SparkClusterSystemdStatus getSystemd() {
+	public SparkClusterStatusSystemd getSystemd() {
 		return systemd;
 	}
 	
-	public void setSystemd(SparkClusterSystemdStatus systemd) {
+	public void setSystemd(SparkClusterStatusSystemd systemd) {
 		this.systemd = systemd;
 	}
 
-	public SparkClusterImageStatus getImage() {
+	public SparkClusterStatusImage getImage() {
 		return image;
 	}
 
-	public void setImage(SparkClusterImageStatus image) {
+	public void setImage(SparkClusterStatusImage image) {
 		this.image = image;
 	}
 }

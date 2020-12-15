@@ -1,4 +1,4 @@
-package com.stackable.spark.operator.cluster.crd.status;
+package com.stackable.spark.operator.cluster.crd;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,25 +12,25 @@ import io.fabric8.kubernetes.api.model.KubernetesResource;
 
 @JsonDeserialize(using = JsonDeserializer.None.class)
 @JsonInclude(Include.NON_NULL)
-public class SparkClusterSystemdStatus implements KubernetesResource {
+public class SparkClusterStatusSystemd implements KubernetesResource {
 	private static final long serialVersionUID = 7259902757939136149L;
 	
-	private SparkClusterCommand runningCommand;
+	private SparkClusterStatusCommand runningCommand;
 	private List<String> stagedCommands;
 	
-	public SparkClusterSystemdStatus() {}
+	public SparkClusterStatusSystemd() {}
 	
-	public SparkClusterSystemdStatus(SparkClusterCommand runningCommand, List<String> stagedCommands) {
+	public SparkClusterStatusSystemd(SparkClusterStatusCommand runningCommand, List<String> stagedCommands) {
 		super();
 		this.runningCommand = runningCommand;
 		this.stagedCommands = stagedCommands;
 	}
 
-	public SparkClusterCommand getRunningCommand() {
+	public SparkClusterStatusCommand getRunningCommand() {
 		return runningCommand;
 	}
 	
-	public void setRunningCommands(SparkClusterCommand runningCommand) {
+	public void setRunningCommands(SparkClusterStatusCommand runningCommand) {
 		this.runningCommand = runningCommand;
 	}
 	
@@ -42,15 +42,15 @@ public class SparkClusterSystemdStatus implements KubernetesResource {
 		this.stagedCommands = stagedCommands;
 	}
 	
-	public void setRunningCommand(SparkClusterCommand runningCommand) {
+	public void setRunningCommand(SparkClusterStatusCommand runningCommand) {
 		this.runningCommand = runningCommand;
 	}
 
 	public static class Builder {
-		private SparkClusterCommand runningCommand;
+		private SparkClusterStatusCommand runningCommand;
 		private List<String> stagedCommands;
 		
-        public Builder withRunningCommands(SparkClusterCommand runningCommand) {
+        public Builder withRunningCommands(SparkClusterStatusCommand runningCommand) {
         	this.runningCommand = runningCommand;
         	return this;
         }
@@ -60,7 +60,7 @@ public class SparkClusterSystemdStatus implements KubernetesResource {
         	return this;
         }
         
-        public Builder withSingleRunningCommand(SparkClusterCommand runningCommand) {
+        public Builder withSingleRunningCommand(SparkClusterStatusCommand runningCommand) {
         	this.runningCommand = runningCommand;
         	return this;
         }
@@ -73,12 +73,12 @@ public class SparkClusterSystemdStatus implements KubernetesResource {
         	return this;
         }
         
-        public SparkClusterSystemdStatus build() {
-        	SparkClusterSystemdStatus status = new SparkClusterSystemdStatus(runningCommand, stagedCommands);
+        public SparkClusterStatusSystemd build() {
+        	SparkClusterStatusSystemd status = new SparkClusterStatusSystemd(runningCommand, stagedCommands);
         	validateObject(status);
             return status;
         }
         
-        private void validateObject(SparkClusterSystemdStatus status) {}
+        private void validateObject(SparkClusterStatusSystemd status) {}
 	}
 }

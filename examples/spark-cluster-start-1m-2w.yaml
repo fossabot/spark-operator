@@ -45,15 +45,13 @@ spec:
       value: "stackable_secret" 
     # spark-env.sh
     env:
-#      - name: SPARK_HOME
-#        value: "{{packageroot}}/spark-3.0.1-bin-hadoop2.7"
       - name: "SPARK_CONF_DIR"
         value: "{{configroot}}/conf"
-#      - name: "SPARK_MASTER_PORT"
-#        value: "7077"
         # do not fork processes
       - name: "SPARK_NO_DAEMONIZE"
         value: "true"
+#      - name: "SPARK_MASTER_PORT"
+#        value: "7077"
   worker:
     selectors:
       - selector: 
@@ -97,14 +95,12 @@ spec:
       value: "stackable_secret" 
     # spark-env.sh
     env:
-#      - name: SPARK_HOME
-#        value: "{{packageroot}}/spark-3.0.1-bin-hadoop2.7"
       - name: "SPARK_CONF_DIR"
         value: "{{configroot}}/conf"
-#      - name: "SPARK_MASTER_PORT"
-#        value: "7077"
         # do not fork processes
       - name: "SPARK_NO_DAEMONIZE"
         value: "true"
+#      - name: "SPARK_MASTER_PORT"
+#        value: "7077"
   image: "spark:3.0.1"
   metrics: false

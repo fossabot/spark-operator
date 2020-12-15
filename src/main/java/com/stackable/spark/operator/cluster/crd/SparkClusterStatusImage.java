@@ -1,4 +1,4 @@
-package com.stackable.spark.operator.cluster.crd.status;
+package com.stackable.spark.operator.cluster.crd;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
@@ -9,15 +9,15 @@ import io.fabric8.kubernetes.api.model.KubernetesResource;
 
 @JsonDeserialize(using = JsonDeserializer.None.class)
 @JsonInclude(Include.NON_NULL)
-public class SparkClusterImageStatus implements KubernetesResource {
+public class SparkClusterStatusImage implements KubernetesResource {
 	private static final long serialVersionUID = 6225543943942754250L;
 
 	private String name;
 	private String timestamp;
 	
-	public SparkClusterImageStatus() {}
+	public SparkClusterStatusImage() {}
 	
-	public SparkClusterImageStatus(String name, String timestamp) {
+	public SparkClusterStatusImage(String name, String timestamp) {
 		super();
 		this.name = name;
 		this.timestamp = timestamp;
@@ -53,12 +53,12 @@ public class SparkClusterImageStatus implements KubernetesResource {
 			return this;
 		}
         
-        public SparkClusterImageStatus build() {
-        	SparkClusterImageStatus image =  new SparkClusterImageStatus(name, timestamp);
+        public SparkClusterStatusImage build() {
+        	SparkClusterStatusImage image =  new SparkClusterStatusImage(name, timestamp);
         	validateObject(image);
             return image;
         }
         
-        private void validateObject(SparkClusterImageStatus image) {}
+        private void validateObject(SparkClusterStatusImage image) {}
 	}
 }

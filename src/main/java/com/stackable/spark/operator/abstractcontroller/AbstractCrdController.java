@@ -1,4 +1,4 @@
-package com.stackable.spark.operator.controller;
+package com.stackable.spark.operator.abstractcontroller;
 
 import java.io.InputStream;
 import java.lang.reflect.ParameterizedType;
@@ -9,11 +9,12 @@ import java.util.concurrent.BlockingQueue;
 
 import org.apache.log4j.Logger;
 
+import com.stackable.spark.operator.abstractcontroller.crd.CrdClassDoneable;
+import com.stackable.spark.operator.abstractcontroller.crd.CrdClassList;
+
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.apiextensions.v1.CustomResourceDefinition;
 import io.fabric8.kubernetes.client.CustomResource;
-import io.fabric8.kubernetes.client.CustomResourceDoneable;
-import io.fabric8.kubernetes.client.CustomResourceList;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
@@ -28,14 +29,9 @@ import io.fabric8.kubernetes.client.informers.cache.Lister;
 /**
  * Abstract CRD Controller to work with customize CRDs. Applies given CRD and orders events (add, update, delete)
  * in an blocking queue. CRDClass extending CustomResource and CRDClassList extending CustomResourceList required!
- * @param <CRDClass> - pojo extending CustomResource
- * @param <CRDClassList> - list version of pojo extending CustomResourceList
- * @param <CRDClassDoneable> - doneable extending CustomResourceDoneable
+ * @param <Crd> - pojo extending CustomResource
  */
-public abstract class AbstractCrdController<CRDClass extends CustomResource, 
-											CRDClassList extends CustomResourceList<CRDClass>,
-											CRDClassDoneable extends CustomResourceDoneable<CRDClass>>
-											implements Runnable {
+public abstract class AbstractCrdController<Crd extends CustomResource> implements Runnable {
     private static final Logger logger = Logger.getLogger(AbstractCrdController.class.getName());
 	
     private static final Integer WORKING_QUEUE_SIZE	= 1024;
@@ -48,10 +44,10 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
 	protected KubernetesClient client;
 	protected SharedInformerFactory informerFactory;
 	
-	protected SharedIndexInformer<CRDClass> crdSharedIndexInformer;
-	protected Lister<CRDClass> crdLister;
+	protected SharedIndexInformer<Crd> crdSharedIndexInformer;
+	protected Lister<Crd> crdLister;
 	
-    protected MixedOperation<CRDClass,CRDClassList,CRDClassDoneable,Resource<CRDClass, CRDClassDoneable>> crdClient; 
+    protected MixedOperation<Crd,CrdClassList<Crd>,CrdClassDoneable<Crd>,Resource<Crd, CrdClassDoneable<Crd>>> crdClient; 
 	
 	@SuppressWarnings("unchecked")
 	public AbstractCrdController(String crdPath, Long resyncCycle) {
@@ -73,8 +69,8 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
         
 		this.crdSharedIndexInformer = informerFactory.sharedIndexInformerForCustomResource(
 			context, 
-        	(Class<CRDClass>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0], 
-        	(Class<CRDClassList>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[1], 
+        	(Class<Crd>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0], 
+        	CrdClassList.class, 
         	resyncCycle
         ); 
 		
@@ -82,9 +78,9 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
 		
 		this.crdClient = client.customResources(
 			context,
-	        (Class<CRDClass>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0], 
-	        (Class<CRDClassList>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[1],
-	        (Class<CRDClassDoneable>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[2]
+	        (Class<Crd>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0], 
+	        (Class<CrdClassList<Crd>>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0],
+	        (Class<CrdClassDoneable<Crd>>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0]
 		); 
 		
         // initialize CRD -> should be one for each controller
@@ -111,7 +107,7 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
         	logger.warn("multiple crds available ... using first one");
         }
     	
-		CustomResourceDefinition crd =  (CustomResourceDefinition)metaData.get(0);
+		CustomResourceDefinition crd = (CustomResourceDefinition)metaData.get(0);
 
 		// check spec
 		if(crd.getSpec().getVersions().isEmpty()) {
@@ -136,7 +132,7 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
 	 * @param controller - controller class extending AbstractCrdController
 	 * @param crd - specified CRD resource class for that controller
 	 */
-    protected abstract void process(CRDClass crd);
+    protected abstract void process(Crd crd);
  
     /**
      * Overwrite method to add more informers to be synced (e.g. pods)
@@ -184,7 +180,7 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
                     continue;
                 }
                 // Get the SparkCluster resource's name from key which is in format namespace/name
-                CRDClass crd = crdLister.get(key.split("/")[1]);
+                Crd crd = crdLister.get(key.split("/")[1]);
 
                 if (crd == null) {
                     continue;
@@ -197,32 +193,32 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
         }
     }
     
-    protected void onCrdAdd(CRDClass crd) {
+    protected void onCrdAdd(Crd crd) {
     	enqueueCrd(crd);
     }
     
-    protected void onCrdUpdate(CRDClass crdOld, CRDClass crdNew) {
+    protected void onCrdUpdate(Crd crdOld, Crd crdNew) {
     	enqueueCrd(crdNew);
     }
     
-    protected void onCrdDelete(CRDClass crd, boolean deletedFinalStateUnknown) {
+    protected void onCrdDelete(Crd crd, boolean deletedFinalStateUnknown) {
     	// noop
     }
     
     private void registerCrdEventHandler() {
-        this.crdSharedIndexInformer.addEventHandler(new ResourceEventHandler<CRDClass>() {
+        this.crdSharedIndexInformer.addEventHandler(new ResourceEventHandler<Crd>() {
             @Override
-            public void onAdd(CRDClass crd) {
+            public void onAdd(Crd crd) {
             	logger.trace("onAdd: " + crd);
             	onCrdAdd(crd);
             }
             @Override
-            public void onUpdate(CRDClass crdOld, CRDClass crdNew) {
+            public void onUpdate(Crd crdOld, Crd crdNew) {
             	logger.trace("onUpdate:\ncrdOld: " + crdOld + "\ncrdNew: " + crdNew);
             	onCrdUpdate(crdOld, crdNew);
             }
             @Override
-            public void onDelete(CRDClass crd, boolean deletedFinalStateUnknown) {
+            public void onDelete(Crd crd, boolean deletedFinalStateUnknown) {
             	logger.trace("onDelete: " + crd);
             	onCrdDelete(crd, deletedFinalStateUnknown);
             }
@@ -233,7 +229,7 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
      * Add elements / events to the blocking queue
      * @param crd - your CRD class
      */
-    protected void enqueueCrd(CRDClass crd) {
+    protected void enqueueCrd(Crd crd) {
         String key = Cache.metaNamespaceKeyFunc(crd);
         if (key != null && !key.isEmpty()) {
             blockingQueue.add(key);
@@ -256,15 +252,15 @@ public abstract class AbstractCrdController<CRDClass extends CustomResource,
 		this.namespace = namespace;
 	}
 
-	public SharedIndexInformer<CRDClass> getCrdSharedIndexInformer() {
+	public SharedIndexInformer<Crd> getCrdSharedIndexInformer() {
 		return crdSharedIndexInformer;
 	}
 
-	public Lister<CRDClass> getCrdLister() {
+	public Lister<Crd> getCrdLister() {
 		return crdLister;
 	}
 
-	public MixedOperation<CRDClass, CRDClassList, CRDClassDoneable, Resource<CRDClass, CRDClassDoneable>> getCrdClient() {
+	public MixedOperation<Crd, CrdClassList<Crd>, CrdClassDoneable<Crd>, Resource<Crd, CrdClassDoneable<Crd>>> getCrdClient() {
 		return crdClient;
 	}
 

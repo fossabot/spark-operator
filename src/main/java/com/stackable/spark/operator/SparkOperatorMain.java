@@ -2,9 +2,9 @@ package com.stackable.spark.operator;
 
 import java.io.FileNotFoundException;
 
-import com.stackable.spark.operator.controller.SparkApplicationController;
-import com.stackable.spark.operator.controller.SparkClusterController;
-import com.stackable.spark.operator.controller.SparkSystemdController;
+import com.stackable.spark.operator.application.SparkApplicationController;
+import com.stackable.spark.operator.cluster.SparkClusterController;
+import com.stackable.spark.operator.systemd.SparkSystemdController;
 
 /**
  * Main Class for Spark Operator: run via this command:

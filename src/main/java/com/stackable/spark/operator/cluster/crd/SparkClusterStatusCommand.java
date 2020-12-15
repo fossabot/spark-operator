@@ -1,4 +1,4 @@
-package com.stackable.spark.operator.cluster.crd.status;
+package com.stackable.spark.operator.cluster.crd;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
@@ -9,7 +9,7 @@ import io.fabric8.kubernetes.api.model.KubernetesResource;
 
 @JsonDeserialize(using = JsonDeserializer.None.class)
 @JsonInclude(Include.NON_NULL)
-public class SparkClusterCommand implements KubernetesResource {
+public class SparkClusterStatusCommand implements KubernetesResource {
 	private static final long serialVersionUID = -8101216638321166890L;
 
 	// preset for status update operation
@@ -19,9 +19,9 @@ public class SparkClusterCommand implements KubernetesResource {
 	private String finishedAt;
 	private String status;
 	
-	public SparkClusterCommand() {}
+	public SparkClusterStatusCommand() {}
 	
-	public SparkClusterCommand(String command, String timeStamp, String startedAt, String finishedAt, String status) {
+	public SparkClusterStatusCommand(String command, String timeStamp, String startedAt, String finishedAt, String status) {
 		super();
 		this.command = command;
 		this.timeStamp = timeStamp;
@@ -102,13 +102,13 @@ public class SparkClusterCommand implements KubernetesResource {
 			return this;
 		}
         
-        public SparkClusterCommand build() {
-        	SparkClusterCommand clusterCommand =  new SparkClusterCommand(command, timeStamp, startedAt, finishedAt, status);
+        public SparkClusterStatusCommand build() {
+        	SparkClusterStatusCommand clusterCommand =  new SparkClusterStatusCommand(command, timeStamp, startedAt, finishedAt, status);
         	validateObject(clusterCommand);
             return clusterCommand;
         }
         
-        private void validateObject(SparkClusterCommand command) {}
+        private void validateObject(SparkClusterStatusCommand command) {}
 	}
 	
 }

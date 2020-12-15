@@ -1,4 +1,4 @@
-package com.stackable.spark.operator.controller;
+package com.stackable.spark.operator.cluster;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -8,13 +8,11 @@ import java.util.Objects;
 
 import org.apache.log4j.Logger;
 
-import com.stackable.spark.operator.cluster.SparkCluster;
-import com.stackable.spark.operator.cluster.SparkClusterDoneable;
-import com.stackable.spark.operator.cluster.SparkClusterList;
-import com.stackable.spark.operator.cluster.crd.spec.SparkNode;
-import com.stackable.spark.operator.cluster.crd.status.SparkClusterCommand;
-import com.stackable.spark.operator.cluster.crd.status.SparkClusterImageStatus;
-import com.stackable.spark.operator.cluster.crd.status.SparkClusterStatus;
+import com.stackable.spark.operator.abstractcontroller.AbstractCrdController;
+import com.stackable.spark.operator.cluster.crd.SparkClusterStatus;
+import com.stackable.spark.operator.cluster.crd.SparkClusterStatusCommand;
+import com.stackable.spark.operator.cluster.crd.SparkClusterStatusImage;
+import com.stackable.spark.operator.cluster.crd.SparkNode;
 import com.stackable.spark.operator.common.state.PodState;
 import com.stackable.spark.operator.common.state.SparkClusterState;
 import com.stackable.spark.operator.common.state.SparkSystemdActionState;
@@ -44,7 +42,8 @@ import io.fabric8.kubernetes.client.informers.cache.Lister;
  * Scale up and down to the instances required in the specification.
  * Offer systemd functionality for start, stop and restart the cluster
  */
-public class SparkClusterController extends AbstractCrdController<SparkCluster, SparkClusterList, SparkClusterDoneable> {
+public class SparkClusterController extends AbstractCrdController<SparkCluster> {
+	
     private static final Logger logger = Logger.getLogger(SparkClusterController.class.getName());
 
     private SharedIndexInformer<Pod> podInformer;
@@ -98,13 +97,11 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 
 	@Override
 	protected void process(SparkCluster cluster) {
-		boolean systemdInProgress = false;
-		systemdInProgress = processSystemdStateMachine(cluster);
-		
-		// only go for cluster state machine if no systemd action is currently running
-		if(!systemdInProgress) {
-			processClusterStateMachine(cluster);
+		if(processSystemdStateMachine(cluster)) {
+			return;
 		}
+		// only go for cluster state machine if no systemd action is currently running
+		processClusterStateMachine(cluster);
 	}
 	
 	/**
@@ -139,7 +136,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		if(cluster.getStatus().getSystemd().getRunningCommand() != null && 
 			cluster.getStatus().getSystemd().getRunningCommand().getCommand() != null &&
 			!cluster.getStatus().getSystemd().getRunningCommand().getStatus().equals(SparkSystemdActionState.FINISHED.toString())) {
-			// skip
+			systemdInProgress = true;
 		}
 		// command staged
 		else if(cluster.getStatus().getSystemd().getStagedCommands().size() != 0) {
@@ -148,6 +145,14 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 			if(action == SparkSystemdAction.NONE) {
 				logger.warn("unidentified systemd action - continue with reconcilation");
 				return systemdInProgress;
+			}
+			else if(action == SparkSystemdAction.STOP) {
+				systemdInProgress = true;
+				systemdState = SparkSystemdState.SYSTEMD_STOP;
+			}
+			else if(action == SparkSystemdAction.START) {
+				systemdInProgress = false;
+				systemdState = SparkSystemdState.SYSTEMD_START;
 			}
 			else if(action == SparkSystemdAction.RESTART) {
 				systemdInProgress = true;
@@ -161,6 +166,21 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		
 		switch(systemdState) {
 		case SYSTEMD_INITIAL: {
+			break;
+		}
+		case SYSTEMD_STOP: {
+			logger.debug(String.format("[%s] - cluster stopped", systemdState.toString()));
+			// TODO: remove command etc - wait until start / restart commands arrive
+			//deletePods(cluster);
+			break;
+		}
+		case SYSTEMD_START: {
+			logger.debug(String.format("[%s] - cluster started", systemdState.toString()));
+			// TODO: remove command etc, go for cluster reconcile
+			// get stages command and remove from list
+			//String stagedCommand = cluster.getStatus().getSystemd().getStagedCommands().remove(0);
+			// jump out
+			//systemdInProgress = false;
 			break;
 		}
 		case SYSTEMD_UPDATE: {
@@ -189,7 +209,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 			String stagedCommand = cluster.getStatus().getSystemd().getStagedCommands().remove(0);
 			// set staged to running
 			cluster.getStatus().getSystemd().setRunningCommands(
-				new SparkClusterCommand.Builder()
+				new SparkClusterStatusCommand.Builder()
 					.withCommand(stagedCommand)
 					.withStartedAt(String.valueOf(System.currentTimeMillis()))
 					.withStatus(SparkSystemdActionState.RUNNING.toString())
@@ -216,7 +236,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 				break;
 			}
 			// set status running command to finished, set finished timestamp and update 
-			SparkClusterCommand runningCommand = cluster.getStatus().getSystemd().getRunningCommand();
+			SparkClusterStatusCommand runningCommand = cluster.getStatus().getSystemd().getRunningCommand();
 			runningCommand.setStatus(SparkSystemdActionState.FINISHED.toString());
 			runningCommand.setFinishedAt(String.valueOf(System.currentTimeMillis()));
 			cluster.getStatus().getSystemd().setRunningCommands(runningCommand);
@@ -226,8 +246,6 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 			systemdState = SparkSystemdState.SYSTEMD_INITIAL;
 			// reset spark cluster state 
 			clusterState = SparkClusterState.INITIAL;
-			// set return value
-			systemdInProgress = false;
 		}}
 		
 		return systemdInProgress;
@@ -288,7 +306,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 			}
 			
 			status.setImage(
-				new SparkClusterImageStatus(cluster.getSpec().getImage(), String.valueOf(System.currentTimeMillis()))
+				new SparkClusterStatusImage(cluster.getSpec().getImage(), String.valueOf(System.currentTimeMillis()))
 			);
 			cluster.setStatus(status);
 			// update status
@@ -338,7 +356,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		case WAIT_FOR_MASTER_RUNNING: {
 			// TODO: multiple master?
 			SparkNode master = cluster.getSpec().getMaster();
-			List<Pod> masterPods = getPodsByNode(cluster,master);
+			List<Pod> masterPods = getPodsByNode(cluster, master);
 			
         	// wait for running
         	if(!allPodsHaveStatus(masterPods, PodState.RUNNING)) {
@@ -832,5 +850,5 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 		}
 		return SparkSystemdAction.NONE;
 	}
-	
+
 }

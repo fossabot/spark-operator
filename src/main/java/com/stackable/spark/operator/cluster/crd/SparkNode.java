@@ -1,4 +1,4 @@
-package com.stackable.spark.operator.cluster.crd.spec;
+package com.stackable.spark.operator.cluster.crd;
 
 import java.util.ArrayList;
 import java.util.List;

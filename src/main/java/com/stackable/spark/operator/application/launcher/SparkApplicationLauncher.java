@@ -11,9 +11,9 @@ import org.apache.log4j.Logger;
 import org.apache.spark.launcher.SparkLauncher;
 
 import com.stackable.spark.operator.application.SparkApplication;
+import com.stackable.spark.operator.application.SparkApplicationController;
 import com.stackable.spark.operator.application.crd.SparkApplicationSpec;
 import com.stackable.spark.operator.common.type.SparkConfig;
-import com.stackable.spark.operator.controller.SparkApplicationController;
 
 import io.fabric8.kubernetes.api.model.EnvVar;
 
