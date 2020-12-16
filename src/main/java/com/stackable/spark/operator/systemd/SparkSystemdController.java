@@ -1,8 +1,5 @@
 package com.stackable.spark.operator.systemd;
 
-import java.lang.reflect.ParameterizedType;
-import java.util.List;
-
 import org.apache.log4j.Logger;
 
 import com.stackable.spark.operator.abstractcontroller.AbstractCrdController;
@@ -12,10 +9,9 @@ import com.stackable.spark.operator.cluster.SparkCluster;
 import com.stackable.spark.operator.cluster.crd.SparkClusterStatus;
 import com.stackable.spark.operator.cluster.crd.SparkClusterStatusSystemd;
 
-import io.fabric8.kubernetes.api.model.HasMetadata;
+import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
-import io.fabric8.kubernetes.client.dsl.base.CustomResourceDefinitionContext;
 
 /**
  * The spark systemd controller is responsible for cluster restarts.
@@ -26,8 +22,8 @@ public class SparkSystemdController extends AbstractCrdController<SparkSystemd> 
 	
 	private String controllerCrdPath;
 	
-    public SparkSystemdController(String crdPath, String controllerCrdPath, Long resyncCycle) {
-		super(crdPath, resyncCycle);
+    public SparkSystemdController(KubernetesClient client, String crdPath, String controllerCrdPath, Long resyncCycle) {
+		super(client, crdPath, resyncCycle);
 		this.controllerCrdPath = controllerCrdPath;
 	}
 
@@ -40,25 +36,15 @@ public class SparkSystemdController extends AbstractCrdController<SparkSystemd> 
 	@Override
 	protected void process(SparkSystemd systemd) {
 		logger.trace("Got CRD: " + systemd.getMetadata().getName());
-		// get cluster crd meta data
-		List<HasMetadata> clusterMetaData = loadYaml(controllerCrdPath);
-		CustomResourceDefinitionContext context = getCrdContext(clusterMetaData);
-		
 		// get custom crd client
-		@SuppressWarnings("unchecked")
 		MixedOperation<
-			SparkCluster,
-			CrdClassList<SparkCluster>,
-			CrdClassDoneable<SparkCluster>,
-			Resource<SparkCluster, CrdClassDoneable<SparkCluster>>> clusterCrdClient = client.customResources(
-				context, 
-				SparkCluster.class, 
-				(Class<CrdClassList<SparkCluster>>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0], 
-				(Class<CrdClassDoneable<SparkCluster>>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0]
-			); 
-		// get specific cluster via name
-		SparkCluster cluster = 
-			clusterCrdClient.inNamespace(namespace).withName(systemd.getSpec().getSparkClusterReference()).get();
+		SparkCluster,
+		CrdClassList<SparkCluster>,
+		CrdClassDoneable<SparkCluster>,
+		Resource<SparkCluster, CrdClassDoneable<SparkCluster>>> 
+			clusterCrdClient = getCustomCrdClient(controllerCrdPath, new SparkCluster());
+		
+		SparkCluster cluster = clusterCrdClient.inNamespace(namespace).withName(systemd.getSpec().getSparkClusterReference()).get();
 		
 		// set staged command in status
 		SparkClusterStatus status = cluster.getStatus();

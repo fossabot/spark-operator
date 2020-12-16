@@ -30,7 +30,7 @@ public class SparkClusterStatusSystemd implements KubernetesResource {
 		return runningCommand;
 	}
 	
-	public void setRunningCommands(SparkClusterStatusCommand runningCommand) {
+	public void setRunningCommand(SparkClusterStatusCommand runningCommand) {
 		this.runningCommand = runningCommand;
 	}
 	
@@ -42,10 +42,6 @@ public class SparkClusterStatusSystemd implements KubernetesResource {
 		this.stagedCommands = stagedCommands;
 	}
 	
-	public void setRunningCommand(SparkClusterStatusCommand runningCommand) {
-		this.runningCommand = runningCommand;
-	}
-
 	public static class Builder {
 		private SparkClusterStatusCommand runningCommand;
 		private List<String> stagedCommands;

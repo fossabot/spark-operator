@@ -10,15 +10,12 @@ import org.apache.log4j.Logger;
 
 import com.stackable.spark.operator.abstractcontroller.AbstractCrdController;
 import com.stackable.spark.operator.cluster.crd.SparkClusterStatus;
-import com.stackable.spark.operator.cluster.crd.SparkClusterStatusCommand;
 import com.stackable.spark.operator.cluster.crd.SparkClusterStatusImage;
 import com.stackable.spark.operator.cluster.crd.SparkNode;
+import com.stackable.spark.operator.cluster.statemachine.SparkSystemdStateMachine;
 import com.stackable.spark.operator.common.state.PodState;
 import com.stackable.spark.operator.common.state.SparkClusterState;
-import com.stackable.spark.operator.common.state.SparkSystemdActionState;
-import com.stackable.spark.operator.common.state.SparkSystemdState;
 import com.stackable.spark.operator.common.type.SparkConfig;
-import com.stackable.spark.operator.common.type.SparkSystemdAction;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
@@ -32,6 +29,7 @@ import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeBuilder;
+import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
@@ -43,22 +41,21 @@ import io.fabric8.kubernetes.client.informers.cache.Lister;
  * Offer systemd functionality for start, stop and restart the cluster
  */
 public class SparkClusterController extends AbstractCrdController<SparkCluster> {
-	
     private static final Logger logger = Logger.getLogger(SparkClusterController.class.getName());
 
     private SharedIndexInformer<Pod> podInformer;
     private Lister<Pod> podLister;
     
-    private SparkSystemdState systemdState;
+    private SparkSystemdStateMachine systemdStateMachine;
     private SparkClusterState clusterState;
     
-	public SparkClusterController(String crdPath, Long resyncCycle) {
-		super(crdPath, resyncCycle);
+	public SparkClusterController(KubernetesClient client, String crdPath, Long resyncCycle) {
+		super(client, crdPath, resyncCycle);
 		
         this.podInformer = informerFactory.sharedIndexInformerFor(Pod.class, PodList.class, resyncCycle);
         this.podLister = new Lister<>(podInformer.getIndexer(), namespace);
 
-        this.systemdState = SparkSystemdState.SYSTEMD_INITIAL;
+        this.systemdStateMachine = new SparkSystemdStateMachine(this);
         this.clusterState = SparkClusterState.INITIAL;
         // register pods
         registerPodEventHandler();
@@ -97,160 +94,13 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
 
 	@Override
 	protected void process(SparkCluster cluster) {
-		if(processSystemdStateMachine(cluster)) {
+		// only go for cluster state machine if no systemd action is currently running
+		if(systemdStateMachine.process(cluster) == true) {
 			return;
 		}
-		// only go for cluster state machine if no systemd action is currently running
 		processClusterStateMachine(cluster);
 	}
 	
-	/**
-	 * Systemd state machine:
-	 * 			|	
-	 * 			+<----------------------------------+
-	 * 			v									^
-	 * 		SYSTEMD_INITIAL---------------------+	|
-	 * 			|								^	|
-	 * 			v								|	|
-	 * 	 	SYSTEMD_UPDATE						|	|
-	 * 			|								|	|
-	 * 			v								|	|
-	 *  	SYSTEMD_WAIT_FOR_IMAGE_UPDATED------+-->+
-	 *		  	|								|	^
-	 *			v								|	|
-	 * 		SYSTEMD_RESTART	<-------------------+	|
-	 * 			|									|
-	 * 			v									|
- 	 *  	SYSTEMD_WAIT_FOR_JOBS_FINISHED			|
- 	 *  		|									|
- 	 *  		v									|
-	 * 		SYSTEMD_WAIT_FOR_PODS_DELETED-----------+
-	 */
-	private boolean processSystemdStateMachine(SparkCluster cluster) {
-		boolean systemdInProgress = false;
-		// check if systemd required -> check status for staged or running command
-		if(cluster.getStatus() == null || cluster.getStatus().getSystemd() == null) { 
-			return systemdInProgress;
-		}
-		// command running: not status not null, command not null, action not finished
-		if(cluster.getStatus().getSystemd().getRunningCommand() != null && 
-			cluster.getStatus().getSystemd().getRunningCommand().getCommand() != null &&
-			!cluster.getStatus().getSystemd().getRunningCommand().getStatus().equals(SparkSystemdActionState.FINISHED.toString())) {
-			systemdInProgress = true;
-		}
-		// command staged
-		else if(cluster.getStatus().getSystemd().getStagedCommands().size() != 0) {
-			SparkSystemdAction action = getSystemdStagedCommand(cluster.getStatus().getSystemd().getStagedCommands());
-			// check for state action
-			if(action == SparkSystemdAction.NONE) {
-				logger.warn("unidentified systemd action - continue with reconcilation");
-				return systemdInProgress;
-			}
-			else if(action == SparkSystemdAction.STOP) {
-				systemdInProgress = true;
-				systemdState = SparkSystemdState.SYSTEMD_STOP;
-			}
-			else if(action == SparkSystemdAction.START) {
-				systemdInProgress = false;
-				systemdState = SparkSystemdState.SYSTEMD_START;
-			}
-			else if(action == SparkSystemdAction.RESTART) {
-				systemdInProgress = true;
-				systemdState = SparkSystemdState.SYSTEMD_RESTART;
-			}
-			else if(action == SparkSystemdAction.UPDATE) {
-				systemdInProgress = true;
-				systemdState = SparkSystemdState.SYSTEMD_UPDATE;
-			}
-		}
-		
-		switch(systemdState) {
-		case SYSTEMD_INITIAL: {
-			break;
-		}
-		case SYSTEMD_STOP: {
-			logger.debug(String.format("[%s] - cluster stopped", systemdState.toString()));
-			// TODO: remove command etc - wait until start / restart commands arrive
-			//deletePods(cluster);
-			break;
-		}
-		case SYSTEMD_START: {
-			logger.debug(String.format("[%s] - cluster started", systemdState.toString()));
-			// TODO: remove command etc, go for cluster reconcile
-			// get stages command and remove from list
-			//String stagedCommand = cluster.getStatus().getSystemd().getStagedCommands().remove(0);
-			// jump out
-			//systemdInProgress = false;
-			break;
-		}
-		case SYSTEMD_UPDATE: {
-			logger.debug(String.format("[%s]", systemdState.toString()));
-			// TODO: wait for jobs to be finished
-			// no new image arrived
-			if(cluster.getStatus().getImage().getName().equals(cluster.getSpec().getImage())) {
-				logger.warn("systemd update called but no new image(" + cluster.getSpec().getImage() + ") available -> abort!");
-				// reset state
-				systemdState = SparkSystemdState.SYSTEMD_INITIAL;
-				// TODO: remove systemd? 
-				break;
-			}
-			systemdState = SparkSystemdState.SYSTEMD_WAIT_FOR_IMAGE_UPDATED;
-		}
-		case SYSTEMD_WAIT_FOR_IMAGE_UPDATED: {
-			logger.debug(String.format("[%s]", systemdState.toString()));
-			systemdState = SparkSystemdState.SYSTEMD_RESTART;
-			
-		}
-		case SYSTEMD_RESTART: {
-			logger.debug(String.format("[%s]", systemdState.toString()));
-			// TODO: wait for jobs to be finished
-			
-			// get stages command and remove from list
-			String stagedCommand = cluster.getStatus().getSystemd().getStagedCommands().remove(0);
-			// set staged to running
-			cluster.getStatus().getSystemd().setRunningCommands(
-				new SparkClusterStatusCommand.Builder()
-					.withCommand(stagedCommand)
-					.withStartedAt(String.valueOf(System.currentTimeMillis()))
-					.withStatus(SparkSystemdActionState.RUNNING.toString())
-					.build()
-					);
-			// update
-			crdClient.updateStatus(cluster);
-			
-			deletePods(cluster);
-			systemdState = SparkSystemdState.SYSTEMD_WAIT_FOR_JOBS_FINISHED;
-			break;
-		}
-		case SYSTEMD_WAIT_FOR_JOBS_FINISHED: {
-			//logger.debug(String.format("[%s]", systemdState.toString()));
-			systemdState = SparkSystemdState.SYSTEMD_WAIT_FOR_PODS_DELETED;
-		}
-		case SYSTEMD_WAIT_FOR_PODS_DELETED: {
-			logger.debug(String.format("[%s]", systemdState.toString()));
-			// get pods and wait for all deleted
-			List<Pod> pods = getPodsByNode(cluster, (SparkNode[])null);
-			// still pods available?
-			if(pods.size() > 0) {
-				// stop and wait
-				break;
-			}
-			// set status running command to finished, set finished timestamp and update 
-			SparkClusterStatusCommand runningCommand = cluster.getStatus().getSystemd().getRunningCommand();
-			runningCommand.setStatus(SparkSystemdActionState.FINISHED.toString());
-			runningCommand.setFinishedAt(String.valueOf(System.currentTimeMillis()));
-			cluster.getStatus().getSystemd().setRunningCommands(runningCommand);
-			crdClient.updateStatus(cluster);
-		
-			// reset systemd state
-			systemdState = SparkSystemdState.SYSTEMD_INITIAL;
-			// reset spark cluster state 
-			clusterState = SparkClusterState.INITIAL;
-		}}
-		
-		return systemdInProgress;
-	}
-
 	/**
 	 * Cluster state machine:
 	 * 
@@ -467,45 +317,12 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
     }
     
     /**
-     * Delete all node (master/worker) pods in cluster with no regard to spec -> systemd
-     * @param cluster - cluster specification to retrieve all used pods
-     * @return list of deleted pods
-     */
-    private List<Pod> deletePods(SparkCluster cluster, SparkNode ...nodes) {
-    	List<Pod> deletedPods = new ArrayList<Pod>();
-
-        // if nodes are null take all
-        if(nodes == null || nodes.length == 0) {
-        	nodes = new SparkNode[]{cluster.getSpec().getMaster(), cluster.getSpec().getWorker()};
-        }
-    	
-    	// collect master and worker nodes
-    	List<Pod> pods = new ArrayList<Pod>();
-    	for(SparkNode node : nodes) {
-    		pods.addAll(getPodsByNode(cluster, node));
-    	}
-    	// delete pods
-    	for(Pod pod : pods) {
-    		// delete from cluster
-	        client.pods()
-	        	.inNamespace(cluster.getMetadata().getNamespace())
-	        	.withName(pod.getMetadata().getName())
-	        	.delete();
-	        // add to deleted list
-	        deletedPods.add(pod	);
-    	}
-		logger.debug(String.format("[%s] - deleted %d pod(s): %s", 
-				systemdState.toString(), deletedPods.size(), podListToDebug(deletedPods)));
-    	return deletedPods; 
-    }
-    
-    /**
      * Return number of pods for given nodes - Terminating is excluded
      * @param cluster - current spark cluster
      * @param nodes - master or worker node
      * @return list of pods belonging to the given node
      */
-    private List<Pod> getPodsByNode(SparkCluster cluster, SparkNode... nodes) {
+    public List<Pod> getPodsByNode(SparkCluster cluster, SparkNode... nodes) {
         List<Pod> podList = new ArrayList<>();
     	
         // if nodes are null take all
@@ -545,7 +362,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
     }
 
     /**
-     * Check incoming pods for owner reference spark cluster and add to blocking queue
+     * Check incoming pods for owner reference of SparkCluster and add to blocking queue
      * @param pod - kubernetes pod
      */
     private void handlePodObject(Pod pod) {
@@ -664,37 +481,37 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
 		Volume vol = new VolumeBuilder().withName(cmName).withConfigMap(cms).build();
 
         return new PodBuilder()
-                .withNewMetadata()
-                  .withGenerateName(createPodName(cluster, node))
-                  .withNamespace(cluster.getMetadata().getNamespace())
-                  .addNewOwnerReference()
-	                  .withController(true)
-	                  .withKind(cluster.getKind())
-	                  .withApiVersion(cluster.getApiVersion())
-	                  .withName(cluster.getMetadata().getName())
-	                  .withNewUid(cluster.getMetadata().getUid())
-                  .endOwnerReference()
-                .endMetadata()
-                .withNewSpec()
-	                .withTolerations(node.getTolerations())
-	                // TODO: check for null / zero elements
-	                .withNodeSelector(node.getSelectors().get(0).getSelector().getMatchLabels())
-	                .withVolumes(vol)
-		                .addNewContainer()
-		                	//TODO: no ":" etc in withName
-			            	.withName("spark-3-0-1")
-			            	.withImage(cluster.getSpec().getImage())
-			            	.withCommand(node.getCommands())
-			            	.withArgs(node.getArgs())
-			                .addNewVolumeMount()
-			                	// TODO: replace hardcoded
-			                  	.withMountPath("conf")
-			                  	.withName(cmName)
-			                .endVolumeMount()
-			                .withEnv(node.getEnv())
-		                .endContainer()
-                .endSpec()
-                .build();
+            .withNewMetadata()
+              .withGenerateName(createPodName(cluster, node))
+              .withNamespace(cluster.getMetadata().getNamespace())
+              .addNewOwnerReference()
+                  .withController(true)
+                  .withKind(cluster.getKind())
+                  .withApiVersion(cluster.getApiVersion())
+                  .withName(cluster.getMetadata().getName())
+                  .withNewUid(cluster.getMetadata().getUid())
+              .endOwnerReference()
+            .endMetadata()
+            .withNewSpec()
+                .withTolerations(node.getTolerations())
+                // TODO: check for null / zero elements
+                .withNodeSelector(node.getSelectors().get(0).getSelector().getMatchLabels())
+                .withVolumes(vol)
+	                .addNewContainer()
+	                	//TODO: no ":" etc in withName
+		            	.withName("spark-3-0-1")
+		            	.withImage(cluster.getSpec().getImage())
+		            	.withCommand(node.getCommands())
+		            	.withArgs(node.getArgs())
+		                .addNewVolumeMount()
+		                	// TODO: replace hardcoded
+		                  	.withMountPath("conf")
+		                  	.withName(cmName)
+		                .endVolumeMount()
+		                .withEnv(node.getEnv())
+	                .endContainer()
+            .endSpec()
+            .build();
     }
 	
 	/**
@@ -702,7 +519,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
 	 * @param controller - current spark cluster controller
 	 * @param cluster - current spark cluster 
 	 * @param nodes - master/worker to reconcile
-	 * @return 
+	 * @return SparkClusterState:
 	 * RECONCILE if nothing to do; 
 	 * CREATE_SPARK_MASTER if #masters < spec;
 	 * CREATE_SPARK_WORKER if #workers < spec;
@@ -800,7 +617,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
     private void adaptWorkerCommand(SparkCluster cluster, List<String> masterNodeNames) {
     	// adapt command in workers
     	List<String> commands = cluster.getSpec().getWorker().getCommands();
-    	// TODO: start-worker.sh? - adapt port
+
     	if(commands.size() == 1) {
     		String port = "7077";
     		// if different port in env
@@ -828,27 +645,10 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
      * @param pods - list of pods
      * @return pod metadata.name
      */
-	private List<String> podListToDebug(List<Pod> pods) {
+	public List<String> podListToDebug(List<Pod> pods) {
 		List<String> output = new ArrayList<String>();
 		pods.forEach((n) -> output.add(n.getMetadata().getName()));
 		return output;
 	}
 	
-	/**
-	 * Retrieve first staged status command
-	 * @param commands - list of staged commands
-	 * @return SparkSystemAction in staged command (e.g. RESTART, UPDATE)
-	 */
-	private SparkSystemdAction getSystemdStagedCommand(List<String> commands) {
-		if(commands.size() != 0) {
-			String com = commands.get(0);
-			
-			for (SparkSystemdAction action : SparkSystemdAction.values()) { 
-				if(action.toString().equals(com.toUpperCase()))
-					return action;
-			}
-		}
-		return SparkSystemdAction.NONE;
-	}
-
 }

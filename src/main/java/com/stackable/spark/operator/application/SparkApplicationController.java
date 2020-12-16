@@ -13,6 +13,7 @@ import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodList;
+import io.fabric8.kubernetes.client.KubernetesClient;
 
 public class SparkApplicationController extends	AbstractCrdController<SparkApplication> {
 
@@ -20,8 +21,8 @@ public class SparkApplicationController extends	AbstractCrdController<SparkAppli
 	
 	private SparkApplicationLauncher sparkApplicationLauncher;
 	
-	public SparkApplicationController(String crdPath, Long resyncCycle) {
-		super(crdPath, resyncCycle);
+	public SparkApplicationController(KubernetesClient client, String crdPath, Long resyncCycle) {
+		super(client, crdPath, resyncCycle);
 		
 		sparkApplicationLauncher = new SparkApplicationLauncher();
 	}

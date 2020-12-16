@@ -1,6 +1,7 @@
 package com.stackable.spark.operator.common.state;
 
-public enum SparkSystemdActionState {
+public enum SparkSystemdCommandState {
+	STARTED("STARTED"),
 	RUNNING("RUNNING"),
 	ABORTED("ABORTED"),
 	FINISHED("FINISHED"),
@@ -8,7 +9,7 @@ public enum SparkSystemdActionState {
 
 	private String state;
 	
-	SparkSystemdActionState(String state) {
+	SparkSystemdCommandState(String state) {
 		this.state = state;
 	}
 	

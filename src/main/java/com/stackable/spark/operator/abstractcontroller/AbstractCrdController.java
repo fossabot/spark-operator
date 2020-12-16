@@ -50,20 +50,25 @@ public abstract class AbstractCrdController<Crd extends CustomResource> implemen
     protected MixedOperation<Crd,CrdClassList<Crd>,CrdClassDoneable<Crd>,Resource<Crd, CrdClassDoneable<Crd>>> crdClient; 
 	
 	@SuppressWarnings("unchecked")
-	public AbstractCrdController(String crdPath, Long resyncCycle) {
-		this.client = new DefaultKubernetesClient();
-        this.namespace = client.getNamespace();
+	public AbstractCrdController(KubernetesClient client, String crdPath, Long resyncCycle) {
+		this.client = client;
+		
+		if(this.client == null) {
+			this.client = new DefaultKubernetesClient();
+		}
+		
+        this.namespace = this.client.getNamespace();
         
         if (this.namespace == null) {
         	this.namespace = "default";
-            //logger.debug("No namespace found via config, assuming " + namespace);
+            logger.trace("No namespace found via config, assuming " + namespace);
         }
         
         this.crdMetadata = loadYaml(crdPath);
 
         this.blockingQueue = new ArrayBlockingQueue<>(WORKING_QUEUE_SIZE);
 
-        this.informerFactory = client.informers();
+        this.informerFactory = this.client.informers();
         
         CustomResourceDefinitionContext context = getCrdContext(crdMetadata);
         
@@ -76,7 +81,7 @@ public abstract class AbstractCrdController<Crd extends CustomResource> implemen
 		
 		this.crdLister = new Lister<>(crdSharedIndexInformer.getIndexer(), namespace);
 		
-		this.crdClient = client.customResources(
+		this.crdClient = this.client.customResources(
 			context,
 	        (Class<Crd>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0], 
 	        (Class<CrdClassList<Crd>>)((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0],
@@ -139,9 +144,13 @@ public abstract class AbstractCrdController<Crd extends CustomResource> implemen
      */
     protected void waitForAllInformersSynced() {
 		while (!crdSharedIndexInformer.hasSynced());
-		logger.info("AbstractCrdController informer initialized ... waiting for changes");
     }
     
+    /**
+     * Load yaml CRD from file path
+     * @param path - path to yaml file
+     * @return List<HasMetadata> of that CRD
+     */
     protected List<HasMetadata> loadYaml(String path) {
         InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(path);
     	List<HasMetadata> result = client.load(is).get();
@@ -167,7 +176,6 @@ public abstract class AbstractCrdController<Crd extends CustomResource> implemen
 		informerFactory.addSharedInformerEventListener(exception -> logger.fatal("Tip: missing/bad CRDs?\n" + exception));
 		// start informers
 		informerFactory.startAllRegisteredInformers();
-		
         // wait until informers have synchronized
         waitForAllInformersSynced();
         // loop for synchronization
@@ -179,14 +187,12 @@ public abstract class AbstractCrdController<Crd extends CustomResource> implemen
                 if (key.isEmpty() || (!key.contains("/"))) {
                     continue;
                 }
-                // Get the SparkCluster resource's name from key which is in format namespace/name
+                // Get the crds resource's name from key which is in format namespace/name
                 Crd crd = crdLister.get(key.split("/")[1]);
 
-                if (crd == null) {
-                    continue;
+                if (crd != null) {
+                    process(crd);
                 }
-
-                process(crd);
             } catch (InterruptedException interruptedException) {
                 Thread.currentThread().interrupt();
             }
@@ -205,6 +211,9 @@ public abstract class AbstractCrdController<Crd extends CustomResource> implemen
     	// noop
     }
     
+    /**
+     * Register crd event handlers for add, update and delete
+     */
     private void registerCrdEventHandler() {
         this.crdSharedIndexInformer.addEventHandler(new ResourceEventHandler<Crd>() {
             @Override
@@ -236,14 +245,37 @@ public abstract class AbstractCrdController<Crd extends CustomResource> implemen
         }
     }
     
-	public KubernetesClient getClient() {
-		return client;
+    /**
+     * Return mixed operation for this crd controller
+     * @return MixedOperation for specified controller
+     */
+	public MixedOperation<Crd, CrdClassList<Crd>, CrdClassDoneable<Crd>, Resource<Crd, CrdClassDoneable<Crd>>> getCrdClient() {
+		return crdClient;
 	}
+	
+	/**
+	 * Return mixed operation for another custom crd controller
+	 * @param <T> CrdClass extending CustomResource
+	 * @param crdPath - path to yaml specification
+	 * @return MixedOperation for specified controller
+	 */
+	@SuppressWarnings("unchecked")
+	public <T extends CustomResource> MixedOperation
+	<T, CrdClassList<T>, CrdClassDoneable<T>, Resource<T, CrdClassDoneable<T>>> 
+		getCustomCrdClient(String crdPath, T t) {
 
-	public void setClient(KubernetesClient client) {
-		this.client = client;
+		// get cluster crd meta data
+		List<HasMetadata> clusterMetaData = loadYaml(crdPath);
+		CustomResourceDefinitionContext context = getCrdContext(clusterMetaData);
+		
+		return client.customResources(
+			context,
+			t.getClass(),
+			(new CrdClassList<T>()).getClass(), 
+			(new CrdClassDoneable<T>(t, null)).getClass()
+		); 
 	}
-
+    
 	public String getNamespace() {
 		return namespace;
 	}
@@ -251,17 +283,13 @@ public abstract class AbstractCrdController<Crd extends CustomResource> implemen
 	public void setNamespace(String namespace) {
 		this.namespace = namespace;
 	}
-
-	public SharedIndexInformer<Crd> getCrdSharedIndexInformer() {
-		return crdSharedIndexInformer;
+	
+	public KubernetesClient getClient() {
+		return client;
 	}
-
-	public Lister<Crd> getCrdLister() {
-		return crdLister;
-	}
-
-	public MixedOperation<Crd, CrdClassList<Crd>, CrdClassDoneable<Crd>, Resource<Crd, CrdClassDoneable<Crd>>> getCrdClient() {
-		return crdClient;
+	
+	public void setClient(KubernetesClient client) {
+		this.client = client;
 	}
 
 }
