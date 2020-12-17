@@ -9,12 +9,10 @@ import java.util.Objects;
 import org.apache.log4j.Logger;
 
 import com.stackable.spark.operator.abstractcontroller.AbstractCrdController;
-import com.stackable.spark.operator.cluster.crd.SparkClusterStatus;
-import com.stackable.spark.operator.cluster.crd.SparkClusterStatusImage;
 import com.stackable.spark.operator.cluster.crd.SparkNode;
+import com.stackable.spark.operator.cluster.statemachine.SparkClusterStateMachine;
 import com.stackable.spark.operator.cluster.statemachine.SparkSystemdStateMachine;
 import com.stackable.spark.operator.common.state.PodState;
-import com.stackable.spark.operator.common.state.SparkClusterState;
 import com.stackable.spark.operator.common.type.SparkConfig;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
@@ -47,7 +45,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
     private Lister<Pod> podLister;
     
     private SparkSystemdStateMachine systemdStateMachine;
-    private SparkClusterState clusterState;
+    private SparkClusterStateMachine clusterStateMachine;
     
 	public SparkClusterController(KubernetesClient client, String crdPath, Long resyncCycle) {
 		super(client, crdPath, resyncCycle);
@@ -56,7 +54,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
         this.podLister = new Lister<>(podInformer.getIndexer(), namespace);
 
         this.systemdStateMachine = new SparkSystemdStateMachine(this);
-        this.clusterState = SparkClusterState.INITIAL;
+        this.clusterStateMachine = new SparkClusterStateMachine(this);
         // register pods
         registerPodEventHandler();
     }
@@ -94,178 +92,12 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
 
 	@Override
 	protected void process(SparkCluster cluster) {
+		// TODO: except stopped?
 		// only go for cluster state machine if no systemd action is currently running
 		if(systemdStateMachine.process(cluster) == true) {
 			return;
 		}
-		processClusterStateMachine(cluster);
-	}
-	
-	/**
-	 * Cluster state machine:
-	 * 
-	 * 		INITIAL
-	 * 			|
-	 * 			v
-	 *  	CREATE_SPARK_MASTER	<-------<---+
-	 *  		|						|	|
-	 *  		|						|	|
-	 *  		v						|	|
-	 *  	WAIT_FOR_HOST_NAME ---------^	|
-	 *  		|						|	|
-	 *  		|						|	|
-	 *  		v						|	|
-	 *  	WAIT_FOR_MASTER_RUNNING	----+	|
-	 *  		|							|
-	 *  		|							|
-	 *  		v							|
-	 *  	CREATE_SPARK_WORKER	<>------+---+
-	 *  		|						^	|
-	 *  		|						|	|
-	 *  		v						|	|
-	 *  	WAIT_FOR_WORKERS_RUNNING ---+---^
-	 *  		|							|
-	 *  		|							|
-	 *  		v							|
-	 *  	RECONCILE ----------------------+
-	 */
-	protected void processClusterStateMachine(SparkCluster cluster) {
-		// validate state 
-		SparkClusterState validatedClusterState = reconcile(cluster);
-		// always go for INITIAL first and wait for master states
-		if(	clusterState != SparkClusterState.INITIAL &&
-			clusterState != SparkClusterState.CREATE_SPARK_MASTER &&
-			clusterState != SparkClusterState.WAIT_FOR_MASTER_HOST_NAME &&
-			clusterState != SparkClusterState.WAIT_FOR_MASTER_RUNNING ) {
-			clusterState = validatedClusterState;
-		}
-		
-		switch(clusterState) {
-		/**
-		 * INITIAL:
-		 * Initialize and clear resources
-		 */
-		case INITIAL: {
-			clusterState = SparkClusterState.CREATE_SPARK_MASTER;
-			
-			// add spark image (deployedImage) to status for systemd update
-			SparkClusterStatus status = cluster.getStatus();
-			
-			if(status == null) {
-				status = new SparkClusterStatus();
-			}
-			
-			status.setImage(
-				new SparkClusterStatusImage(cluster.getSpec().getImage(), String.valueOf(System.currentTimeMillis()))
-			);
-			cluster.setStatus(status);
-			// update status
-			crdClient.updateStatus(cluster);
-			// no break required
-		}
-		/**
-		 * CREATE_SPARK_MASTER:
-		 * Spawn master pods given by specification
-		 */
-		case CREATE_SPARK_MASTER: {
-        	// create master instances
-			SparkNode master = cluster.getSpec().getMaster();
-			List<Pod> masterPods = getPodsByNode(cluster, master);
-			
-        	createPods(masterPods, cluster, master);
-        	
-	        clusterState = SparkClusterState.WAIT_FOR_MASTER_HOST_NAME;
-			break;
-		}
-	    /**
-	     * WAIT_FOR_MASTER_HOST_NAME: 
-	     * after master is created, wait for agent to set the dedicated host name and use for workers 
-	     * ==> create config map
-	     */
-		case WAIT_FOR_MASTER_HOST_NAME: {
-        	SparkNode master = cluster.getSpec().getMaster();
-        	List<Pod> masterPods = getPodsByNode(cluster, master);
-			// check for host name -> wait if not available
-        	// TODO who is leader?
-        	List<String> nodeName = getMasterNodeNames(masterPods);
-        	
-        	if(nodeName.size() == 0) {
-        		break;
-        	}
-        	
-        	// create master config map 
-        	createConfigMap(cluster, master);
-    		
-   			clusterState = SparkClusterState.WAIT_FOR_MASTER_RUNNING;
-			break;
-		}
-	    /**
-	     * WAIT_FOR_MASTER_RUNNING
-	     * Wait before the master is configured and running before spawning workers
-	     */
-		case WAIT_FOR_MASTER_RUNNING: {
-			// TODO: multiple master?
-			SparkNode master = cluster.getSpec().getMaster();
-			List<Pod> masterPods = getPodsByNode(cluster, master);
-			
-        	// wait for running
-        	if(!allPodsHaveStatus(masterPods, PodState.RUNNING)) {
-        		break;
-        	}
-        	
-        	clusterState = SparkClusterState.CREATE_SPARK_WORKER;
-        	// no break required
-		}
-	    /**
-	     * CREATE_SPARK_WORKER:
-	     * Spawn worker pods given by specification
-	     */
-		case CREATE_SPARK_WORKER: {
-			SparkNode master = cluster.getSpec().getMaster();
-			List<Pod> masterPods = getPodsByNode(cluster, master);
-			SparkNode worker = cluster.getSpec().getWorker();
-			List<Pod> workerPods = getPodsByNode(cluster, worker);
-			
-        	// check host name
-        	List<String> masterNodeNames = getMasterNodeNames(masterPods);
-        	
-        	if( masterNodeNames.size() == 0) {
-        		break;
-        	}
-        	// adapt command in workers
-        	adaptWorkerCommand(cluster, masterNodeNames);
-
-        	// spin up workers
-        	workerPods = createPods(workerPods, cluster, worker);
-        	// create config map        	
-        	createConfigMap(cluster, worker);
-        	
-        	clusterState = SparkClusterState.WAIT_FOR_WORKERS_RUNNING;
-			break;
-		}
-	    /**
-	     * WAIT_FOR_WORKERS_RUNNING
-	     * Wait for all workers to run
-	     */
-		case WAIT_FOR_WORKERS_RUNNING: {
-        	List<Pod> workerPods = getPodsByNode(cluster, cluster.getSpec().getWorker());
-
-        	// wait for running
-        	if(!allPodsHaveStatus(workerPods, PodState.RUNNING)) {
-        		break;
-        	}
-        	
-        	clusterState = SparkClusterState.RECONCILE;
-        	// no break needed
-		}
-	    /**
-	     * RECONCILE:
-	     * Watch the cluster state and act if spec != state
-	     */
-		case RECONCILE: {
-			logger.debug(String.format("[%s]", clusterState.toString()));
-			break;
-		}}
+		clusterStateMachine.process(cluster);
 	}
 	
 	/**
@@ -275,7 +107,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
 	 * @param node - master or worker node
 	 * @return list of created pods
 	 */
-    private List<Pod> createPods(List<Pod> pods, SparkCluster cluster, SparkNode node) {
+    public List<Pod> createPods(List<Pod> pods, SparkCluster cluster, SparkNode node) {
     	List<Pod> createdPods = new ArrayList<Pod>();
         // Compare with desired state (spec.master.node.instances)
         // If less then create new pods
@@ -286,7 +118,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
             }
         }
 		logger.debug(String.format("[%s] - created %d %s pod(s): %s", 
-			clusterState.toString(), createdPods.size(), node.getPodTypeName(), podListToDebug(createdPods)));
+				clusterStateMachine.getState().name(), createdPods.size(), node.getPodTypeName(), podListToDebug(createdPods)));
         return createdPods;
     }
     
@@ -297,7 +129,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
 	 * @param node - master or worker node
 	 * @return list of deleted pods
 	 */
-    private List<Pod> deletePods(List<Pod> pods, SparkCluster cluster, SparkNode node) {
+    public List<Pod> deletePods(List<Pod> pods, SparkCluster cluster, SparkNode node) {
     	List<Pod> deletedPods = new ArrayList<Pod>();
         // If more pods than spec delete old pods
         int diff = pods.size() - node.getInstances();
@@ -312,8 +144,41 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
             deletedPods.add(pod);
         }
 		logger.debug(String.format("[%s] - deleted %d %s pod(s): %s", 
-				clusterState.toString(), deletedPods.size(), node.getPodTypeName(), podListToDebug(deletedPods)));
+				clusterStateMachine.getState().name(), deletedPods.size(), node.getPodTypeName(), podListToDebug(deletedPods)));
         return deletedPods;
+    }
+    
+    /**
+     * Delete all node (master/worker) pods in cluster with no regard to spec -> systemd
+     * @param cluster - cluster specification to retrieve all used pods
+     * @return list of deleted pods
+     */
+    public List<Pod> deletePods(SparkCluster cluster, String state, SparkNode ...nodes) {
+    	List<Pod> deletedPods = new ArrayList<Pod>();
+
+        // if nodes are null take all
+        if(nodes == null || nodes.length == 0) {
+        	nodes = new SparkNode[]{cluster.getSpec().getMaster(), cluster.getSpec().getWorker()};
+        }
+    	
+    	// collect master and worker nodes
+    	List<Pod> pods = new ArrayList<Pod>();
+    	for(SparkNode node : nodes) {
+    		pods.addAll(getPodsByNode(cluster, node));
+    	}
+    	// delete pods
+    	for(Pod pod : pods) {
+    		// delete from cluster
+	        client.pods()
+	        	.inNamespace(cluster.getMetadata().getNamespace())
+	        	.withName(pod.getMetadata().getName())
+	        	.delete();
+	        // add to deleted list
+	        deletedPods.add(pod	);
+    	}
+		logger.debug(String.format("[%s] - deleted %d pod(s): %s", 
+				state, deletedPods.size(), podListToDebug(deletedPods)));
+    	return deletedPods; 
     }
     
     /**
@@ -409,7 +274,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
      * @param cluster - spark cluster
      * @param node - spark master / worker
      */
-    private void createConfigMap(SparkCluster cluster, SparkNode node) {
+    public void createConfigMap(SparkCluster cluster, SparkNode node) {
     	String cmName = createPodName(cluster, node) + "cm";
     	
         Resource<ConfigMap,DoneableConfigMap> configMapResource = client
@@ -440,6 +305,40 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
             .endMetadata()
             .addToData(cmFiles)
             .build());
+    }
+    
+    /**
+     * Delete config map content for master / worker
+     * @param cluster - spark cluster
+     * @param node - spark master / worker
+     */
+    public void deleteConfigMap(SparkCluster cluster, SparkNode node) {
+    	String cmName = createPodName(cluster, node) + "cm";
+    	
+        Resource<ConfigMap,DoneableConfigMap> configMapResource = client
+        	.configMaps()
+        	.inNamespace(cluster.getMetadata().getNamespace())
+        	.withName(cmName);
+
+        // delete config map
+        configMapResource.delete();
+    }
+    
+    /**
+     * Get config map content for master / worker
+     * @param cluster - spark cluster
+     * @param node - spark master / worker
+     */
+    public ConfigMap getConfigMap(SparkCluster cluster, SparkNode node) {
+    	String cmName = createPodName(cluster, node) + "cm";
+    	
+        Resource<ConfigMap,DoneableConfigMap> configMapResource = client
+        	.configMaps()
+        	.inNamespace(cluster.getMetadata().getNamespace())
+        	.withName(cmName);
+
+        // delete config map
+        return configMapResource.get();
     }
     
     /**
@@ -515,59 +414,12 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
     }
 	
 	/**
-	 * Reconcile the spark cluster. Compare current with desired state and adapt.
-	 * @param controller - current spark cluster controller
-	 * @param cluster - current spark cluster 
-	 * @param nodes - master/worker to reconcile
-	 * @return SparkClusterState:
-	 * RECONCILE if nothing to do; 
-	 * CREATE_SPARK_MASTER if #masters < spec;
-	 * CREATE_SPARK_WORKER if #workers < spec;
-	 */
-    private SparkClusterState reconcile(SparkCluster cluster, SparkNode... nodes) {
-    	SparkClusterState state = clusterState;
-    	SparkNode master = cluster.getSpec().getMaster();
-    	SparkNode worker = cluster.getSpec().getWorker();
-    	List<Pod> masterPods = getPodsByNode(cluster, master);
-    	List<Pod> workerPods = getPodsByNode(cluster, worker);
-  
-		logger.debug(String.format("[%s] - %s [%d / %d] | %s [%d / %d]", 
-				clusterState.toString(),
-				master.getPodTypeName(), masterPods.size(), master.getInstances(),
-				worker.getPodTypeName(), workerPods.size(), worker.getInstances()
-			));
-    	
-		// master missing
-        if(getPodSpecToClusterDifference(master, masterPods) > 0) {
-        	state = SparkClusterState.CREATE_SPARK_MASTER;
-        }
-        // worker missing && master pods equal spec
-        else if(getPodSpecToClusterDifference(worker, workerPods) > 0 &&
-        		masterPods.size() == master.getInstances()) {
-        	state = SparkClusterState.CREATE_SPARK_WORKER;
-        }
-        
-        // delete master pods
-        // TODO: leader?
-        if(getPodSpecToClusterDifference(master, masterPods) < 0) {
-        	deletePods(masterPods, cluster, master);
-        }
-        
-        // delete worker pods
-        if(getPodSpecToClusterDifference(worker, workerPods) < 0) {
-        	deletePods(workerPods, cluster, worker);
-        }
-        
-        return state;
-    }
-    
-	/**
 	 * Check if all given pods have status "Running"
 	 * @param pods - list of pods
 	 * @param status - PodStatus to compare to
 	 * @return true if all pods have status from Podstatus
 	 */
-    private boolean allPodsHaveStatus(List<Pod> pods, PodState status) {
+    public boolean allPodsHaveStatus(List<Pod> pods, PodState status) {
 		boolean result = true;
     	for(Pod pod : pods) {
     		if(!pod.getStatus().getPhase().equals(status.toString())) {
@@ -587,7 +439,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
      * < 0 if state greater than specification -> delete pods
      * > 0 if state smaller specification -> create pods
      */
-    private int getPodSpecToClusterDifference(SparkNode node, List<Pod> pods) {
+    public int getPodSpecToClusterDifference(SparkNode node, List<Pod> pods) {
     	return node.getInstances() - pods.size();
     }
     
@@ -596,13 +448,12 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
      * @param pods - list of master pods
      * @return null or pod.spec.nodeName if available
      */
-    private List<String> getMasterNodeNames(List<Pod> pods) {
+    public List<String> getHostNames(List<Pod> pods) {
     	// TODO: determine master leader
     	List<String> nodeNames = new ArrayList<String>();
     	for(Pod pod : pods) {
     		String nodeName = pod.getSpec().getNodeName();
     		if(nodeName != null && !nodeName.isEmpty()) {
-    			logger.debug(String.format("[%s] - got nodeName: %s", clusterState.toString(), nodeName));
     			nodeNames.add(nodeName);
     		}
     	}
@@ -614,7 +465,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
      * @param cluster - spark cluster
      * @param masterNodeNames - list of available master nodes
      */
-    private void adaptWorkerCommand(SparkCluster cluster, List<String> masterNodeNames) {
+    public void adaptWorkerCommand(SparkCluster cluster, List<String> masterNodeNames) {
     	// adapt command in workers
     	List<String> commands = cluster.getSpec().getWorker().getCommands();
 
@@ -636,10 +487,11 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
     		
     		String masterUrl = sb.toString();
     		commands.add(masterUrl);
-    		
-    		logger.debug(String.format("[%s] - set worker MASTER_URL to: %s", clusterState.toString(), masterUrl));
+			// TODO: dont use cluster state
+    		logger.debug(String.format("[%s] - set worker MASTER_URL to: %s", clusterStateMachine.getState().name(), masterUrl));
     	}
     }
+    
     /**
      * Helper method to print pod lists
      * @param pods - list of pods
@@ -650,5 +502,4 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster> 
 		pods.forEach((n) -> output.add(n.getMetadata().getName()));
 		return output;
 	}
-	
 }

@@ -1,6 +1,5 @@
 package com.stackable.spark.operator.cluster.statemachine;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -13,11 +12,12 @@ import com.stackable.spark.operator.cluster.SparkClusterController;
 import com.stackable.spark.operator.cluster.crd.SparkClusterStatusCommand;
 import com.stackable.spark.operator.cluster.crd.SparkClusterStatusSystemd;
 import com.stackable.spark.operator.cluster.crd.SparkNode;
+import com.stackable.spark.operator.cluster.statemachine.SparkSystemdStateMachine.SystemdEvent;
 import com.stackable.spark.operator.common.state.SparkSystemdCommandState;
 
 import io.fabric8.kubernetes.api.model.Pod;
 
-public class SparkSystemdStateMachine {
+public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster, SystemdEvent> {
     private static final Logger logger = Logger.getLogger(SparkSystemdStateMachine.class.getName());
     
 	private SystemdState state;
@@ -28,13 +28,9 @@ public class SparkSystemdStateMachine {
 		this.controller = controller;
 	}
 	
-	/**
-	 * Process cluster in the state machine: get events and run transitions 
-	 * @param cluster - spark cluster
-	 * @return true if systemd transitions took place
-	 */
+	@Override
 	public boolean process(SparkCluster cluster) {
-		SystemdEvent event = getSystemdEvent(cluster);
+		SystemdEvent event = getEvent(cluster);
 		if( event == SystemdEvent.NO_EVENT) {
 			return false;
 		}
@@ -42,12 +38,8 @@ public class SparkSystemdStateMachine {
 		return true;
 	}
 	
-	/**
-	 * Extract a systemd event from the cluster state
-	 * @param cluster - spark cluster
-	 * @return SystemdEvent 
-	 */
-	private SystemdEvent getSystemdEvent(SparkCluster cluster) {
+	@Override
+	public SystemdEvent getEvent(SparkCluster cluster) {
 		// TODO: improve event finding depending on status and command
 		SystemdEvent event = SystemdEvent.NO_EVENT;
 		// check if status available: no status nothing to do
@@ -73,11 +65,8 @@ public class SparkSystemdStateMachine {
 		return event;
 	}
 	
-	/**
-	 * Apply transitions through the state machine depending on incoming events
-	 * @param cluster - spark cluster
-	 * @param event - events for transitions
-	 */
+
+	@Override
 	public void transition(SparkCluster cluster, SystemdEvent event) {
 		switch(state) {
 		case SYSTEMD_READY: {
@@ -120,7 +109,7 @@ public class SparkSystemdStateMachine {
 				// update status
 				controller.getCrdClient().updateStatus(cluster);
 				// delete all pods
-				deletePods(cluster);
+				controller.deletePods(cluster, state.name());
 				// send pods deleted event
 				event = SystemdEvent.JOBS_FINISHED;
 				
@@ -167,39 +156,6 @@ public class SparkSystemdStateMachine {
 		}}
 	}
 	
-    /**
-     * Delete all node (master/worker) pods in cluster with no regard to spec -> systemd
-     * @param cluster - cluster specification to retrieve all used pods
-     * @return list of deleted pods
-     */
-    public List<Pod> deletePods(SparkCluster cluster, SparkNode ...nodes) {
-    	List<Pod> deletedPods = new ArrayList<Pod>();
-
-        // if nodes are null take all
-        if(nodes == null || nodes.length == 0) {
-        	nodes = new SparkNode[]{cluster.getSpec().getMaster(), cluster.getSpec().getWorker()};
-        }
-    	
-    	// collect master and worker nodes
-    	List<Pod> pods = new ArrayList<Pod>();
-    	for(SparkNode node : nodes) {
-    		pods.addAll(controller.getPodsByNode(cluster, node));
-    	}
-    	// delete pods
-    	for(Pod pod : pods) {
-    		// delete from cluster
-	        controller.getClient().pods()
-	        	.inNamespace(cluster.getMetadata().getNamespace())
-	        	.withName(pod.getMetadata().getName())
-	        	.delete();
-	        // add to deleted list
-	        deletedPods.add(pod	);
-    	}
-		logger.debug(String.format("[%s] - deleted %d pod(s): %s", 
-				state.name(), deletedPods.size(), controller.podListToDebug(deletedPods)));
-    	return deletedPods; 
-    }
-    
 	/**
 	 * Systemd State Machine:
 	 *					|
@@ -259,17 +215,10 @@ public class SparkSystemdStateMachine {
             map.put(SystemdEvent.RESTART, SystemdState.SYSTEMD_JOBS_FINISHED);
             map.put(SystemdEvent.UPDATE, SystemdState.SYSTEMD_IMAGE_UPDATED);
             map.put(SystemdEvent.STOP, SystemdState.SYSTEMD_JOBS_FINISHED);
-            // SYSTEMD_IMAGE_UPDATED
             map.put(SystemdEvent.IMAGE_UPDATED, SystemdState.SYSTEMD_JOBS_FINISHED);
-            // SYSTEMD_JOBS_FINISHED
             map.put(SystemdEvent.JOBS_FINISHED, SystemdState.SYSTEMD_PODS_DELETED);
-            // SYSTEMD_PODS_DELETED
             map.put(SystemdEvent.PODS_DELETED, SystemdState.SYSTEMD_READY);
-            map.put(SystemdEvent.STOP, SystemdState.SYSTEMD_STOPPED);
-            // SYSTEMD_STOPPED
             map.put(SystemdEvent.START, SystemdState.SYSTEMD_READY);
-            map.put(SystemdEvent.RESTART, SystemdState.SYSTEMD_JOBS_FINISHED);
-            map.put(SystemdEvent.UPDATE, SystemdState.SYSTEMD_IMAGE_UPDATED);
         }
     }
 	
@@ -281,10 +230,6 @@ public class SparkSystemdStateMachine {
 		 * nothing to be done
 		 */
 		NO_EVENT,
-		/**
-		 * event for implicit transitions 
-		 */
-		IMPLICIT,
 		/**
 		 * Systemd start
 		 */
