@@ -12,7 +12,7 @@ import io.fabric8.kubernetes.api.model.KubernetesResource;
 import io.fabric8.kubernetes.api.model.Toleration;
 
 @JsonDeserialize(using = JsonDeserializer.None.class)
-public abstract class SparkNode implements KubernetesResource {
+public class SparkNode implements KubernetesResource {
 	private static final long serialVersionUID = 5917995090358580518L;
 
 	@JsonIgnore
@@ -28,7 +28,24 @@ public abstract class SparkNode implements KubernetesResource {
 	private List<EnvVar> sparkConfiguration = new ArrayList<EnvVar>();
 	private List<EnvVar> env = new ArrayList<EnvVar>();
 	
-    public String getPodTypeName() {
+	public SparkNode() {}
+	
+    public SparkNode(Integer instances, String memory, String cores, List<SparkSelector> selectors,
+			List<Toleration> tolerations, List<String> commands, List<String> args, List<EnvVar> sparkConfiguration,
+			List<EnvVar> env) {
+		super();
+		this.instances = instances;
+		this.memory = memory;
+		this.cores = cores;
+		this.selectors = selectors;
+		this.tolerations = tolerations;
+		this.commands = commands;
+		this.args = args;
+		this.sparkConfiguration = sparkConfiguration;
+		this.env = env;
+	}
+
+	public String getPodTypeName() {
 		return podTypeName;
 	}
 
@@ -44,7 +61,7 @@ public abstract class SparkNode implements KubernetesResource {
         this.instances = instances;
     }
 
-    public java.lang.String getMemory() {
+    public String getMemory() {
         return memory;
     }
 
@@ -52,7 +69,7 @@ public abstract class SparkNode implements KubernetesResource {
         this.memory = memory;
     }
 
-    public java.lang.String getCores() {
+    public String getCores() {
         return cores;
     }
 
@@ -116,4 +133,69 @@ public abstract class SparkNode implements KubernetesResource {
 		this.env = env;
 	}
 
+	public static class Builder {
+		private Integer instances;
+		private String memory;
+		private String cores;
+		private List<SparkSelector> selectors = new ArrayList<SparkSelector>();
+		private List<Toleration> tolerations = new ArrayList<Toleration>();
+		private List<String> commands = new ArrayList<String>();
+		private List<String> args = new ArrayList<String>();
+		private List<EnvVar> sparkConfiguration = new ArrayList<EnvVar>();
+		private List<EnvVar> env = new ArrayList<EnvVar>();
+		
+		public Builder withInstances(Integer instances) {
+			this.instances = instances;
+			return this;
+		}
+
+		public Builder withMemory(String memory) {
+			this.memory = memory;
+			return this;
+		}
+        
+		public Builder withCores(String cores) {
+			this.cores = cores;
+			return this;
+		}
+		
+		public Builder withSparkSelectors(List<SparkSelector> selectors) {
+			this.selectors = selectors;
+			return this;
+		}
+		
+		public Builder withTolerations(List<Toleration> tolerations) {
+			this.tolerations = tolerations;
+			return this;
+		}
+		
+		public Builder withCommands(List<String> commands) {
+			this.commands = commands;
+			return this;
+		}
+		
+		public Builder withArgs(List<String> args) {
+			this.args = args;
+			return this;
+		}
+		
+		public Builder withSparkConfiguration(List<EnvVar> sparkConfiguration) {
+			this.sparkConfiguration = sparkConfiguration;
+			return this;
+		}
+		
+		public Builder withEnvVars(List<EnvVar> env) {
+			this.env = env;
+			return this;
+		}
+        
+        public SparkNode build() {
+        	SparkNode node =
+        		new SparkNode(instances, memory, cores, selectors, tolerations, commands, args, sparkConfiguration, env);
+        	validateObject(node);
+            return node;
+        }
+        
+        private void validateObject(SparkNode node) {}
+	}
 }

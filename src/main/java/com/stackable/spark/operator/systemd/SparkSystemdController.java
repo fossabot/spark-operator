@@ -3,13 +3,16 @@ package com.stackable.spark.operator.systemd;
 import org.apache.log4j.Logger;
 
 import com.stackable.spark.operator.abstractcontroller.AbstractCrdController;
-import com.stackable.spark.operator.abstractcontroller.crd.CrdClassDoneable;
-import com.stackable.spark.operator.abstractcontroller.crd.CrdClassList;
 import com.stackable.spark.operator.cluster.SparkCluster;
 import com.stackable.spark.operator.cluster.crd.SparkClusterStatus;
 import com.stackable.spark.operator.cluster.crd.SparkClusterStatusSystemd;
+import com.stackable.spark.operator.common.fabric8.SparkSystemdDoneable;
+import com.stackable.spark.operator.common.fabric8.SparkSystemdList;
 
+import io.fabric8.kubernetes.client.CustomResourceDoneable;
+import io.fabric8.kubernetes.client.CustomResourceList;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
 
@@ -17,7 +20,7 @@ import io.fabric8.kubernetes.client.dsl.Resource;
  * The spark systemd controller is responsible for cluster restarts.
  * Signal the spark cluster controller of pending restarts via editing the respective SparkCluster
  */
-public class SparkSystemdController extends AbstractCrdController<SparkSystemd> {
+public class SparkSystemdController extends AbstractCrdController<SparkSystemd,SparkSystemdList,SparkSystemdDoneable> {
 	private static final Logger logger = Logger.getLogger(SparkSystemdController.class.getName());
 	
 	private String controllerCrdPath;
@@ -37,17 +40,13 @@ public class SparkSystemdController extends AbstractCrdController<SparkSystemd> 
 	protected void process(SparkSystemd systemd) {
 		logger.trace("Got CRD: " + systemd.getMetadata().getName());
 		// get custom crd client
-		MixedOperation<
-		SparkCluster,
-		CrdClassList<SparkCluster>,
-		CrdClassDoneable<SparkCluster>,
-		Resource<SparkCluster, CrdClassDoneable<SparkCluster>>> 
-			clusterCrdClient = getCustomCrdClient(controllerCrdPath, new SparkCluster());
+		MixedOperation<SparkCluster, CustomResourceList<SparkCluster>, CustomResourceDoneable<SparkCluster>, Resource<SparkCluster, CustomResourceDoneable<SparkCluster>>> 
+			clusterCrdClient = getCustomCrdClient(controllerCrdPath, SparkCluster.class);
 		
 		SparkCluster cluster = clusterCrdClient.inNamespace(namespace).withName(systemd.getSpec().getSparkClusterReference()).get();
 		
 		// set staged command in status
-		SparkClusterStatus status = cluster.getStatus();
+		SparkClusterStatus status = cluster == null ? null : cluster.getStatus();
 		if(status == null) {
 			status = new SparkClusterStatus();
 		}
@@ -58,10 +57,13 @@ public class SparkSystemdController extends AbstractCrdController<SparkSystemd> 
 						 );
 		
 		cluster.setStatus(status);
-		
-		// update status
-		clusterCrdClient.updateStatus(cluster);
-		
+		try {
+			// update status
+			clusterCrdClient.updateStatus(cluster);
+		}
+		catch(KubernetesClientException ex) {
+			logger.warn("Received outdated object: " + ex.getMessage());
+		}
 		// remove systemd crd?
 		if(crdClient.inNamespace(namespace).withName(systemd.getMetadata().getName()).delete()) {
 			logger.trace("deleted systemd crd: " + systemd.getMetadata().getName() + " with action: " + systemd.getSpec().getSystemdAction());

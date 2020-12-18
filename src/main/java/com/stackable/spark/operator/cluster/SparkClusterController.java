@@ -12,6 +12,8 @@ import com.stackable.spark.operator.abstractcontroller.AbstractCrdController;
 import com.stackable.spark.operator.cluster.crd.SparkNode;
 import com.stackable.spark.operator.cluster.statemachine.SparkClusterStateMachine;
 import com.stackable.spark.operator.cluster.statemachine.SparkSystemdStateMachine;
+import com.stackable.spark.operator.common.fabric8.SparkClusterDoneable;
+import com.stackable.spark.operator.common.fabric8.SparkClusterList;
 import com.stackable.spark.operator.common.state.PodState;
 import com.stackable.spark.operator.common.type.SparkConfig;
 
@@ -38,7 +40,7 @@ import io.fabric8.kubernetes.client.informers.cache.Lister;
  * Scale up and down to the instances required in the specification.
  * Offer systemd functionality for start, stop and restart the cluster
  */
-public class SparkClusterController extends AbstractCrdController<SparkCluster> {
+public class SparkClusterController extends AbstractCrdController<SparkCluster,SparkClusterList,SparkClusterDoneable> {
     private static final Logger logger = Logger.getLogger(SparkClusterController.class.getName());
 
     private SharedIndexInformer<Pod> podInformer;

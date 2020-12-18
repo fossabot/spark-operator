@@ -42,8 +42,7 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
 	public SystemdEvent getEvent(SparkCluster cluster) {
 		// TODO: improve event finding depending on status and command
 		SystemdEvent event = SystemdEvent.NO_EVENT;
-		// check if status available: no status nothing to do
-		// NO_EVENT
+		// check if status available: no status -> nothing to do
 		if(cluster.getStatus() == null || cluster.getStatus().getSystemd() == null) { 
 			return event;
 		}
@@ -64,7 +63,6 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
 		
 		return event;
 	}
-	
 
 	@Override
 	public void transition(SparkCluster cluster, SystemdEvent event) {
@@ -188,7 +186,8 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
     		SystemdEvent.JOBS_FINISHED
     	),
     	SYSTEMD_PODS_DELETED(
-    		SystemdEvent.PODS_DELETED
+    		SystemdEvent.PODS_DELETED,
+    		SystemdEvent.STOP
     	),
     	SYSTEMD_STOPPED(
     		SystemdEvent.RESTART, 
@@ -204,10 +203,12 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
         }
  
         public SystemdState nextState(SystemdEvent event, SystemdState current) {
+        	SystemdState newState = current;
             if (events.contains(event)) {
-                return map.getOrDefault(event, current);
+                newState = map.getOrDefault(event, current);
             }
-            return current;
+            logger.trace(String.format("[%s ==> %s]", current.name(), newState.name()));
+            return newState;
         }
         // transitions (event,newState)
         static {

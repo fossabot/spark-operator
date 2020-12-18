@@ -7,6 +7,8 @@ import org.apache.log4j.Logger;
 import com.stackable.spark.operator.abstractcontroller.AbstractCrdController;
 import com.stackable.spark.operator.application.launcher.SparkApplicationLauncher;
 import com.stackable.spark.operator.cluster.crd.SparkNodeMaster;
+import com.stackable.spark.operator.common.fabric8.SparkApplicationDoneable;
+import com.stackable.spark.operator.common.fabric8.SparkApplicationList;
 import com.stackable.spark.operator.common.type.SparkConfig;
 
 import io.fabric8.kubernetes.api.model.Container;
@@ -15,8 +17,7 @@ import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 
-public class SparkApplicationController extends	AbstractCrdController<SparkApplication> {
-
+public class SparkApplicationController extends	AbstractCrdController<SparkApplication,SparkApplicationList,SparkApplicationDoneable> {
 	private static final Logger logger = Logger.getLogger(SparkApplicationController.class.getName());
 	
 	private SparkApplicationLauncher sparkApplicationLauncher;
