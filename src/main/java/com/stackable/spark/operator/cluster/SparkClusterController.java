@@ -119,8 +119,6 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
                 createdPods.add(pod);
             }
         }
-		logger.debug(String.format("[%s] - created %d %s pod(s): %s", 
-				clusterStateMachine.getState().name(), createdPods.size(), node.getPodTypeName(), podListToDebug(createdPods)));
         return createdPods;
     }
     

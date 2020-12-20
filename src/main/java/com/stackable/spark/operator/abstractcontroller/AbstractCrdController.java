@@ -254,7 +254,7 @@ public abstract class AbstractCrdController<
      * Return mixed operation for this crd controller
      * @return MixedOperation for specified controller
      */
-	public MixedOperation<Crd,CrdList,CrdDoneable,Resource<Crd, CrdDoneable>> getCrdClient() {
+	public MixedOperation<Crd,CrdList,CrdDoneable,Resource<Crd,CrdDoneable>> getCrdClient() {
 		return crdClient;
 	}
 	

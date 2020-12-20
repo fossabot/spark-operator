@@ -56,11 +56,6 @@ public class SparkClusterStatusSystemd implements KubernetesResource {
         	return this;
         }
         
-        public Builder withSingleRunningCommand(SparkClusterStatusCommand runningCommand) {
-        	this.runningCommand = runningCommand;
-        	return this;
-        }
-        
         public Builder withSingleStagedCommand(String stagedCommand) {
         	if(this.stagedCommands == null) {
         		this.stagedCommands = new ArrayList<String>();

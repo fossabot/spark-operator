@@ -141,7 +141,7 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
 				cluster.setStatus(status);
 				// update status
 				controller.getCrdClient().updateStatus(cluster);
-				// TODO: hack
+				// TODO: remove hack
 				state = ClusterState.READY;
 				break;
 			}
@@ -151,7 +151,10 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
 				// delete old configmap
 				controller.deleteConfigMap(cluster, master);
 				// create master instances if required
-	        	controller.createPods(masterPods, cluster, master);
+				masterPods = controller.createPods(masterPods, cluster, master);
+				
+	    		logger.debug(String.format("[%s] - created %d %s pod(s): %s", 
+	    				state.name(), masterPods.size(), master.getPodTypeName(), controller.podListToDebug(masterPods)));
 				break;
 			}
 			case WAIT_HOST_NAME: {
@@ -188,6 +191,9 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
 	        	controller.createConfigMap(cluster, worker);
 	        	// spin up workers
 	        	workerPods = controller.createPods(workerPods, cluster, worker);
+	        	
+	    		logger.debug(String.format("[%s] - created %d %s pod(s): %s", 
+	    				state.name(), workerPods.size(), worker.getPodTypeName(), controller.podListToDebug(workerPods)));
 	        	break;
 			}
 			case WAIT_WORKER_RUNNING: {

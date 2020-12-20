@@ -21,6 +21,7 @@
 		<log4j.version>1.2.17</log4j.version>
 		<slf4j.version>1.7.30</slf4j.version>
 		
+		<mockserver.plugin.version>5.11.2</mockserver.plugin.version>
 		<junit.version>5.7.0</junit.version>
 	</properties>
 
@@ -87,6 +88,31 @@
 						</configuration>
 					</execution>
 				</executions>
+			</plugin>
+			<plugin>
+			    <groupId>org.mock-server</groupId>
+			    <artifactId>mockserver-maven-plugin</artifactId>
+			    <version>${mockserver.plugin.version}</version>
+			    <configuration>
+			       <serverPort>31080</serverPort>
+			       <logLevel>DEBUG</logLevel>
+			    </configuration>
+			    <executions>
+			        <execution>
+			            <id>process-test-classes</id>
+			            <phase>process-test-classes</phase>
+			            <goals>
+			                <goal>runForked</goal>
+			            </goals>
+			        </execution>
+			        <execution>
+			            <id>verify</id>
+			            <phase>verify</phase>
+			            <goals>
+			                <goal>stopForked</goal>
+			            </goals>
+			        </execution>
+			    </executions>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
