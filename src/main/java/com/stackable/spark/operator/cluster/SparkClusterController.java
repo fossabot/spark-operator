@@ -660,4 +660,13 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
 		hasMetadata.forEach((n) -> output.add(n.getMetadata().getName()));
 		return output;
 	}
+
+	public SparkSystemdStateMachine getSystemdStateMachine() {
+		return systemdStateMachine;
+	}
+
+	public SparkClusterStateMachine getClusterStateMachine() {
+		return clusterStateMachine;
+	}
+	
 }
