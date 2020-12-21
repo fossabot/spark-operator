@@ -107,7 +107,10 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
 				// update status
 				controller.getCrdClient().updateStatus(cluster);
 				// delete all pods
-				controller.deletePods(cluster, state.name());
+				List<Pod> deletedPods = controller.deletePods(cluster, state.name());
+				logger.debug(String.format("[%s] - deleted %d pod(s): %s", 
+						state, deletedPods.size(), controller.metadataListToDebug(deletedPods)));
+				
 				// send pods deleted event
 				event = SystemdEvent.JOBS_FINISHED;
 				

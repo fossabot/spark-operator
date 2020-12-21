@@ -4,18 +4,23 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.UUID;
 
 import org.apache.log4j.Logger;
 
 import com.stackable.spark.operator.abstractcontroller.AbstractCrdController;
 import com.stackable.spark.operator.cluster.crd.SparkNode;
+import com.stackable.spark.operator.cluster.crd.SparkNodeSelector;
+import com.stackable.spark.operator.cluster.crd.SparkNodeWorker;
 import com.stackable.spark.operator.cluster.statemachine.SparkClusterStateMachine;
 import com.stackable.spark.operator.cluster.statemachine.SparkSystemdStateMachine;
 import com.stackable.spark.operator.common.fabric8.SparkClusterDoneable;
 import com.stackable.spark.operator.common.fabric8.SparkClusterList;
 import com.stackable.spark.operator.common.state.PodState;
 import com.stackable.spark.operator.common.type.SparkConfig;
+import com.stackable.spark.operator.common.type.SparkOperatorConfig;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
@@ -23,6 +28,7 @@ import io.fabric8.kubernetes.api.model.ConfigMapVolumeSource;
 import io.fabric8.kubernetes.api.model.ConfigMapVolumeSourceBuilder;
 import io.fabric8.kubernetes.api.model.DoneableConfigMap;
 import io.fabric8.kubernetes.api.model.EnvVar;
+import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
@@ -111,15 +117,126 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
 	 */
     public List<Pod> createPods(List<Pod> pods, SparkCluster cluster, SparkNode node) {
     	List<Pod> createdPods = new ArrayList<Pod>();
-        // Compare with desired state (spec.master.node.instances)
         // If less then create new pods
         if (pods.size() < node.getInstances()) {
-            for (int index = 0; index < node.getInstances() - pods.size(); index++) {
-                Pod pod = client.pods().inNamespace(cluster.getMetadata().getNamespace()).create(createNewPod(cluster, node));
-                createdPods.add(pod);
-            }
+        	// check which host names are missing
+        	Map<String,List<Pod>> podsByHostName = splitPodsByHostName(pods, node);
+        	// check each node selector
+        	for(SparkNodeSelector selector: node.getSelectors()) {
+        		// get instances for each selector
+        		int instances = selector.getInstances();
+        		for(Entry<String,List<Pod>> entry: podsByHostName.entrySet()) { 
+	                for (int index = 0; index < instances - podsByHostName.get(entry.getKey()).size(); index++) {
+	                    Pod pod = client.pods()
+	                    			.inNamespace(cluster.getMetadata().getNamespace())
+	                    			.create(createNewPod(cluster, node));
+	                    createdPods.add(pod);
+	                }
+        		}
+        	}
         }
         return createdPods;
+    }
+    
+    /**
+     * Create pod for spark node
+     * @param cluster - spark cluster
+     * @param node - master or worker node
+     * @return pod create from specs
+     */
+	private Pod createNewPod(SparkCluster cluster, SparkNode node) {
+		String podName = createPodName(cluster, node, true);
+		String cmName = podName +  "-cm";
+		ConfigMapVolumeSource cms = new ConfigMapVolumeSourceBuilder().withName(cmName).build();
+		Volume vol = new VolumeBuilder().withName(cmName).withConfigMap(cms).build();
+
+        return new PodBuilder()
+            .withNewMetadata()
+              .withName(podName)
+              .withNamespace(cluster.getMetadata().getNamespace())
+              .addNewOwnerReference()
+                  .withController(true)
+                  .withApiVersion(cluster.getApiVersion())
+                  .withKind(cluster.getKind())
+                  .withName(cluster.getMetadata().getName())
+                  .withNewUid(cluster.getMetadata().getUid())
+              .endOwnerReference()
+            .endMetadata()
+            .withNewSpec()
+                .withTolerations(node.getTolerations())
+                // TODO: check for null / zero elements
+                .withNodeSelector(node.getSelectors().get(0).getMatchLabels())
+                .withVolumes(vol)
+	                .addNewContainer()
+	                	//TODO: no ":" etc in withName
+		            	.withName("spark-3-0-1")
+		            	.withImage(cluster.getSpec().getImage())
+		            	.withCommand(node.getCommands())
+		            	.withArgs(node.getArgs())
+		                .addNewVolumeMount()
+		                  	.withMountPath(SparkOperatorConfig.POD_CONTAINER_VOLUME_MOUNT_PATH.toString())
+		                  	.withName(cmName)
+		                .endVolumeMount()
+		                .withEnv(node.getEnv())
+	                .endContainer()
+            .endSpec()
+            .build();
+    }
+       
+    /**
+     * Split existing pods according to spec in selectors and their hostnames
+     * @param pods - list of existing pods
+     * @param node - spark node (master/worker) 
+     * @return HashMap<String,List<Pod> where the key is the hostname and value is a list of pods with that hostname
+     */
+    private Map<String,List<Pod>> splitPodsByHostName(List<Pod> pods, SparkNode node) {
+    	Map<String,List<Pod>> podsByHost = new HashMap<>();
+
+		// check in each node selector
+    	for(SparkNodeSelector selector: node.getSelectors()) {
+    		// check if pod.nodename equals selector.matchlabels.hostname TODO: remove hardcoded
+    		String hostName = selector.getMatchLabels().get(SparkOperatorConfig.KUBERNETES_IO_HOSTNAME.toString());
+    		
+    		if(hostName != null) {
+    			podsByHost.put(hostName, new ArrayList<Pod>());
+    		}
+    		
+        	// each pod
+        	for(Pod pod : pods) {
+        		if(pod.getSpec().getNodeName().equals(hostName)) {
+        			podsByHost.get(hostName).add(pod);
+        		}
+        	}
+    	}
+    	return podsByHost;
+    }
+    
+    /**
+     * retrieve corresponding selector for pod
+     * @param pod - pod with node / hostname
+     * @param node - spark master / worker node
+     * @return selector corresponding to pod
+     */
+    private Map<Pod,SparkNodeSelector> getSelectorsForPod(List<Pod> pods, SparkNode node) {
+    	Map<Pod,SparkNodeSelector> matchPodOnSelector = new HashMap<>();
+    	// for each selector
+    	for(SparkNodeSelector selector: node.getSelectors()) {
+    		int instances = selector.getInstances();
+    		// for each pod check if matchlabels is a fit and  
+    		for(Pod pod: pods) {
+    			// if hostnames match && instances left from spec && pod no selector yet
+    			if(pod.getSpec().getNodeName().equals(
+    				selector.getMatchLabels().get(SparkOperatorConfig.KUBERNETES_IO_HOSTNAME.toString()))
+    				&& instances > 0
+    				&& matchPodOnSelector.get(pod) == null){
+    				// add to map
+    				matchPodOnSelector.put(pod, selector);
+    				// reduce left over instances
+    				instances--;
+    			}
+    		}
+    	}
+    	return matchPodOnSelector;
     }
     
 	/**
@@ -144,7 +261,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
             deletedPods.add(pod);
         }
 		logger.debug(String.format("[%s] - deleted %d %s pod(s): %s", 
-				clusterStateMachine.getState().name(), deletedPods.size(), node.getPodTypeName(), podListToDebug(deletedPods)));
+				clusterStateMachine.getState().name(), deletedPods.size(), node.getPodTypeName(), metadataListToDebug(deletedPods)));
         return deletedPods;
     }
     
@@ -176,8 +293,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
 	        // add to deleted list
 	        deletedPods.add(pod	);
     	}
-		logger.debug(String.format("[%s] - deleted %d pod(s): %s", 
-				state, deletedPods.size(), podListToDebug(deletedPods)));
+
     	return deletedPods; 
     }
     
@@ -196,7 +312,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
         }
         
     	for(SparkNode node : nodes) {
-	        String nodeName = createPodName(cluster, node);
+	        String nodeName = createPodName(cluster, node, false);
 	        
 	        for (Pod pod : podLister.list()) {
 	        	// filter for pods not belonging to cluster
@@ -207,8 +323,8 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
 	        	if(pod.getMetadata().getDeletionTimestamp() != null) {
 	        		continue;
 	        	}
+        		// TODO: Filter PodStatus: Running...Failure etc.
 	        	if (pod.getMetadata().getName().contains(nodeName)) {
-	        		// TODO: Filter PodStatus: Running...Failure etc.
                     podList.add(pod);
 	            }
 	        }
@@ -220,10 +336,25 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
      * Create pod name schema
      * @param cluster - current spark cluster
      * @param node - master or worker node
+     * @param withUUID - if true append generated UUID, if false keep generated name (cluster.name + "-" + node.podtypename)
      * @return pod name
      */
-    private String createPodName(SparkCluster cluster, SparkNode node) {
-    	return cluster.getMetadata().getName() + "-" + node.getPodTypeName() + "-";
+    private String createPodName(SparkCluster cluster, SparkNode node, boolean withUUID) {
+    	String podName = cluster.getMetadata().getName() + "-" + node.getPodTypeName() + "-";
+    	if(withUUID) {
+    		podName += UUID.randomUUID().toString().replace("-", "").substring(0, 8);	
+    	}
+    	
+    	return podName;
+    }
+    
+    /**
+     * Create config map name for pod
+     * @param pod - pod with config map
+     * @return config map name
+     */
+    private String createConfigMapName(Pod pod) {
+    	return pod.getMetadata().getName() + "-cm";
     }
 
     /**
@@ -271,57 +402,63 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
     
     /**
      * Create config map content for master / worker
+     * @param pods - pods to create config maps for
      * @param cluster - spark cluster
      * @param node - spark master / worker
      */
-    public void createConfigMap(SparkCluster cluster, SparkNode node) {
-    	String cmName = createPodName(cluster, node) + "cm";
+    public List<ConfigMap> createConfigMaps(List<Pod> pods, SparkCluster cluster, SparkNode node) {
+    	List<ConfigMap> createdConfigMaps = new ArrayList<>();
+    	// match selector
+		Map<Pod,SparkNodeSelector> matchPodToSelectors = getSelectorsForPod(pods, node);
     	
-        Resource<ConfigMap,DoneableConfigMap> configMapResource = client
-        	.configMaps()
-        	.inNamespace(cluster.getMetadata().getNamespace())
-        	.withName(cmName);
-        //
-        // create entry for spark-env.sh
-        //
-        StringBuffer sbEnv = new StringBuffer();
-        // only worker has required information to be set
-        SparkNode worker = cluster.getSpec().getWorker();
-        Map<String,String> cmFiles = new HashMap<String,String>();
-        // all known data in yaml and pojo
-        addToSparkEnv(sbEnv, SparkConfig.SPARK_WORKER_CORES, worker.getCores());
-        addToSparkEnv(sbEnv, SparkConfig.SPARK_WORKER_MEMORY, worker.getMemory());
-        cmFiles.put("spark-env.sh", sbEnv.toString());
-        //
-        // create entry for spark-defaults.conf
-        //
-        StringBuffer sbConf = new StringBuffer();
-        addToSparkConfig(node.getSparkConfiguration(), sbConf);
-        cmFiles.put("spark-defaults.conf", sbConf.toString());
-        // create config map
-        configMapResource.createOrReplace(new ConfigMapBuilder()
-        	.withNewMetadata()
-            	.withName(cmName)
-            .endMetadata()
-            .addToData(cmFiles)
-            .build());
-    }
-    
-    /**
-     * Delete config map content for master / worker
-     * @param cluster - spark cluster
-     * @param node - spark master / worker
-     */
-    public void deleteConfigMap(SparkCluster cluster, SparkNode node) {
-    	String cmName = createPodName(cluster, node) + "cm";
-    	
-        Resource<ConfigMap,DoneableConfigMap> configMapResource = client
-        	.configMaps()
-        	.inNamespace(cluster.getMetadata().getNamespace())
-        	.withName(cmName);
+		for(Entry<Pod,SparkNodeSelector> entry: matchPodToSelectors.entrySet()) {
+			String cmName = createConfigMapName(entry.getKey());
+			
+            Resource<ConfigMap,DoneableConfigMap> configMapResource = client
+                	.configMaps()
+                	.inNamespace(cluster.getMetadata().getNamespace())
+                	.withName(cmName);
+            //
+            // create entry for spark-env.sh
+            //
+            StringBuffer sbEnv = new StringBuffer();
+            // only worker has required information to be set
+            Map<String,String> cmFiles = new HashMap<String,String>();
+            // all known data in yaml and pojo for worker
+            if(node.getPodTypeName().equals(SparkNodeWorker.POD_TYPE)) {
+            	addToSparkEnv(sbEnv, SparkConfig.SPARK_WORKER_CORES, entry.getValue().getCores());
+            	addToSparkEnv(sbEnv, SparkConfig.SPARK_WORKER_MEMORY, entry.getValue().getMemory());
+            }
+            
+            cmFiles.put("spark-env.sh", sbEnv.toString());
+            //
+            // create entry for spark-defaults.conf
+            //
+            StringBuffer sbConf = new StringBuffer();
+            // adapt secret
+            String secret = cluster.getSpec().getSecret();
+            if(secret != null && !secret.isEmpty()) {
+            	node.getSparkConfiguration().add(new EnvVar(SparkConfig.SPARK_AUTHENTICATE.getConfig(), "true", null));
+            	node.getSparkConfiguration().add(new EnvVar(SparkConfig.SPARK_AUTHENTICATE_SECRET.getConfig(), secret, null));
+            }
+            addToSparkConfig(node.getSparkConfiguration(), sbConf);
+            
+            cmFiles.put("spark-defaults.conf", sbConf.toString());
+            //
+            // create config map
+            //
+            ConfigMap created = configMapResource.createOrReplace(new ConfigMapBuilder()
+            					.withNewMetadata()
+            						.withName(cmName)
+            					.endMetadata()
+            					.addToData(cmFiles)
+            					.build());
+            if(created != null) {
+            	createdConfigMaps.add(created);
+            }
+		}
 
-        // delete config map
-        configMapResource.delete();
+    	return createdConfigMaps;
     }
     
     /**
@@ -329,16 +466,68 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
      * @param cluster - spark cluster
      * @param node - spark master / worker
      */
-    public ConfigMap getConfigMap(SparkCluster cluster, SparkNode node) {
-    	String cmName = createPodName(cluster, node) + "cm";
-    	
-        Resource<ConfigMap,DoneableConfigMap> configMapResource = client
-        	.configMaps()
-        	.inNamespace(cluster.getMetadata().getNamespace())
-        	.withName(cmName);
+    public List<ConfigMap> getConfigMaps(List<Pod> pods, SparkCluster cluster) {
+    	List<ConfigMap> configMaps = new ArrayList<>();
+    	for(Pod pod: pods) {
+	    	String cmName = createConfigMapName(pod);
+	    	
+	        Resource<ConfigMap,DoneableConfigMap> configMapResource = client
+	        	.configMaps()
+	        	.inNamespace(cluster.getMetadata().getNamespace())
+	        	.withName(cmName);
+	
+	        // get config map
+	        ConfigMap cm = configMapResource.get();
+	        if(cm != null) {
+	        	configMaps.add(cm);
+	        }
+    	}
+    	return configMaps;
+    }
+    
+    /**
+     * Delete config map content for master / worker
+     * @param cluster - spark cluster
+     * @param node - spark master / worker
+     */
+    public void deleteConfigMaps(List<Pod> pods, SparkCluster cluster, SparkNode node) {
+    	for(Pod pod: pods) {
+	    	String cmName = createConfigMapName(pod);
+	    	
+	        Resource<ConfigMap,DoneableConfigMap> configMapResource = client
+	        	.configMaps()
+	        	.inNamespace(cluster.getMetadata().getNamespace())
+	        	.withName(cmName);
+	        
+	        // delete
+	        configMapResource.delete();
+    	}
+    }
+    
+    /** 
+     * delete all config maps associated with cluster
+     * @param cluster - spark cluster
+     * @return list of deleted config maps
+     */
+    public List<ConfigMap> deleteAllClusterConfigMaps(SparkCluster cluster) {
+    	List<ConfigMap> deletedConfigMaps = new ArrayList<>();
+    	List<ConfigMap> configMaps = client
+    								.configMaps()
+    								.inNamespace(cluster.getMetadata().getNamespace())
+    								.list()
+    								.getItems();
 
-        // delete config map
-        return configMapResource.get();
+    	SparkNode[] nodes = new SparkNode[] {cluster.getSpec().getMaster(), cluster.getSpec().getWorker() };
+    	
+    	for(SparkNode node: nodes) {
+    		for(ConfigMap cm: configMaps) {
+    			if(cm.getMetadata().getName().startsWith(createPodName(cluster, node, false))) {
+    				client.configMaps().delete(cm);
+    				deletedConfigMaps.add(cm);
+    			}
+    		}
+    	}
+    	return deletedConfigMaps;
     }
     
     /**
@@ -368,51 +557,6 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
     	}
     }
     
-    /**
-     * Create pod for spark node
-     * @param cluster - spark cluster
-     * @param node - master or worker node
-     * @return pod create from specs
-     */
-	private Pod createNewPod(SparkCluster cluster, SparkNode node) {
-		String cmName = createPodName(cluster, node) + "cm";
-		ConfigMapVolumeSource cms = new ConfigMapVolumeSourceBuilder().withName(cmName).build();
-		Volume vol = new VolumeBuilder().withName(cmName).withConfigMap(cms).build();
-
-        return new PodBuilder()
-            .withNewMetadata()
-              .withGenerateName(createPodName(cluster, node))
-              .withNamespace(cluster.getMetadata().getNamespace())
-              .addNewOwnerReference()
-                  .withController(true)
-                  .withKind(cluster.getKind())
-                  .withApiVersion(cluster.getApiVersion())
-                  .withName(cluster.getMetadata().getName())
-                  .withNewUid(cluster.getMetadata().getUid())
-              .endOwnerReference()
-            .endMetadata()
-            .withNewSpec()
-                .withTolerations(node.getTolerations())
-                // TODO: check for null / zero elements
-                .withNodeSelector(node.getSelectors().get(0).getSelector().getMatchLabels())
-                .withVolumes(vol)
-	                .addNewContainer()
-	                	//TODO: no ":" etc in withName
-		            	.withName("spark-3-0-1")
-		            	.withImage(cluster.getSpec().getImage())
-		            	.withCommand(node.getCommands())
-		            	.withArgs(node.getArgs())
-		                .addNewVolumeMount()
-		                	// TODO: replace hardcoded
-		                  	.withMountPath("conf")
-		                  	.withName(cmName)
-		                .endVolumeMount()
-		                .withEnv(node.getEnv())
-	                .endContainer()
-            .endSpec()
-            .build();
-    }
-	
 	/**
 	 * Check if all given pods have status "Running"
 	 * @param pods - list of pods
@@ -465,7 +609,8 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
      * @param cluster - spark cluster
      * @param masterNodeNames - list of available master nodes
      */
-    public void adaptWorkerCommand(SparkCluster cluster, List<String> masterNodeNames) {
+    public String adaptWorkerCommand(SparkCluster cluster, List<String> masterNodeNames) {
+    	String masterUrl = null;
     	// adapt command in workers
     	List<String> commands = cluster.getSpec().getWorker().getCommands();
 
@@ -485,11 +630,10 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
     			if(i < masterNodeNames.size() - 1) sb.append(",");
     		}
     		
-    		String masterUrl = sb.toString();
+    		masterUrl = sb.toString();
     		commands.add(masterUrl);
-			// TODO: dont use cluster state
-    		logger.debug(String.format("[%s] - set worker MASTER_URL to: %s", clusterStateMachine.getState().name(), masterUrl));
     	}
+    	return masterUrl;
     }
     
     /**
@@ -497,9 +641,9 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
      * @param pods - list of pods
      * @return pod metadata.name
      */
-	public List<String> podListToDebug(List<Pod> pods) {
+	public List<String> metadataListToDebug(List<? extends HasMetadata> hasMetadata) {
 		List<String> output = new ArrayList<String>();
-		pods.forEach((n) -> output.add(n.getMetadata().getName()));
+		hasMetadata.forEach((n) -> output.add(n.getMetadata().getName()));
 		return output;
 	}
 }

@@ -18,10 +18,7 @@ public class SparkNode implements KubernetesResource {
 	@JsonIgnore
 	private String podTypeName;
 
-	private Integer instances = 1;
-	private String memory = "1000m";
-	private String cores = "1";
-	private List<SparkSelector> selectors = new ArrayList<SparkSelector>();
+	private List<SparkNodeSelector> selectors = new ArrayList<SparkNodeSelector>();
 	private List<Toleration> tolerations = new ArrayList<Toleration>();
 	private List<String> commands = new ArrayList<String>();
 	private List<String> args = new ArrayList<String>();
@@ -30,13 +27,11 @@ public class SparkNode implements KubernetesResource {
 	
 	public SparkNode() {}
 	
-    public SparkNode(Integer instances, String memory, String cores, List<SparkSelector> selectors,
-			List<Toleration> tolerations, List<String> commands, List<String> args, List<EnvVar> sparkConfiguration,
-			List<EnvVar> env) {
+    public SparkNode(
+    		List<SparkNodeSelector> selectors, List<Toleration> tolerations, List<String> commands, 
+    		List<String> args, List<EnvVar> sparkConfiguration,
+    		List<EnvVar> env) {
 		super();
-		this.instances = instances;
-		this.memory = memory;
-		this.cores = cores;
 		this.selectors = selectors;
 		this.tolerations = tolerations;
 		this.commands = commands;
@@ -44,6 +39,20 @@ public class SparkNode implements KubernetesResource {
 		this.sparkConfiguration = sparkConfiguration;
 		this.env = env;
 	}
+    
+    /**
+     * Add all instances in given selectors
+     * @return sum of instances in given selectors 
+     */
+    public Integer getInstances() {
+    	int instances = 0;
+    	if(selectors.size() != 0) {
+	    	for(SparkNodeSelector selector: selectors) {
+	    		instances += selector.getInstances();
+	    	}
+    	}
+    	return instances;
+    }
 
 	public String getPodTypeName() {
 		return podTypeName;
@@ -53,35 +62,11 @@ public class SparkNode implements KubernetesResource {
 		this.podTypeName = typeName;
 	}
 	
-	public Integer getInstances() {
-        return instances;
-    }
-
-	public void setInstances(Integer instances) {
-        this.instances = instances;
-    }
-
-    public String getMemory() {
-        return memory;
-    }
-
-    public void setMemory(String memory) {
-        this.memory = memory;
-    }
-
-    public String getCores() {
-        return cores;
-    }
-
-    public void setCores(String cores) {
-        this.cores = cores;
-    }
-    
-	public List<SparkSelector> getSelectors() {
+	public List<SparkNodeSelector> getSelectors() {
 		return selectors;
 	}
 
-	public void setSelectors(List<SparkSelector> selectors) {
+	public void setSelectors(List<SparkNodeSelector> selectors) {
 		this.selectors = selectors;
 	}
 	
@@ -134,32 +119,14 @@ public class SparkNode implements KubernetesResource {
 	}
 
 	public static class Builder {
-		private Integer instances;
-		private String memory;
-		private String cores;
-		private List<SparkSelector> selectors = new ArrayList<SparkSelector>();
+		private List<SparkNodeSelector> selectors = new ArrayList<SparkNodeSelector>();
 		private List<Toleration> tolerations = new ArrayList<Toleration>();
 		private List<String> commands = new ArrayList<String>();
 		private List<String> args = new ArrayList<String>();
 		private List<EnvVar> sparkConfiguration = new ArrayList<EnvVar>();
 		private List<EnvVar> env = new ArrayList<EnvVar>();
 		
-		public Builder withInstances(Integer instances) {
-			this.instances = instances;
-			return this;
-		}
-
-		public Builder withMemory(String memory) {
-			this.memory = memory;
-			return this;
-		}
-        
-		public Builder withCores(String cores) {
-			this.cores = cores;
-			return this;
-		}
-		
-		public Builder withSparkSelectors(List<SparkSelector> selectors) {
+		public Builder withSparkSelectors(List<SparkNodeSelector> selectors) {
 			this.selectors = selectors;
 			return this;
 		}
@@ -190,8 +157,7 @@ public class SparkNode implements KubernetesResource {
 		}
         
         public SparkNode build() {
-        	SparkNode node =
-        		new SparkNode(instances, memory, cores, selectors, tolerations, commands, args, sparkConfiguration, env);
+        	SparkNode node = new SparkNode(selectors, tolerations, commands, args, sparkConfiguration, env);
         	validateObject(node);
             return node;
         }

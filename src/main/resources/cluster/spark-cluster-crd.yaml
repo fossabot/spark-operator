@@ -40,30 +40,28 @@ spec:
                 master:
                   type: object
                   properties:
-                    # number of master instances
-                    instances:
-                      type: integer
-                    # number of master cores
-                    cores:
-                      type: string
-                    # number of master memory
-                    memory:
-                      type: string
-                    # selector start
+                    # selectors start
                     selectors:
                       type: array
                       items:
                         type: object
                         properties:
-                          selector: 
+                          # number of master instances
+                          instances:
+                            type: integer
+                          # number of master cores
+                          cores:
+                            type: string
+                          # number of master memory
+                          memory:
+                            type: string
+                          # match nodes
+                          matchLabels:
                             type: object
                             properties:
-                              matchLabels:
-                                type: object
-                                properties:
-                                  kubernetes.io/hostname:
-                                    type: string
-                    # end selector
+                              kubernetes.io/hostname:
+                                type: string
+                    # end selectors
                     # tolerations
                     tolerations: 
                       type: array
@@ -114,29 +112,27 @@ spec:
                 worker:
                   type: object
                   properties:
-                    # number of worker instances
-                    instances:
-                      type: integer
-                    # number of worker cores
-                    cores:
-                      type: string
-                    # number of worker memory
-                    memory:
-                      type: string
                     # selector start
                     selectors:
                       type: array
                       items:
                         type: object
                         properties:
-                          selector: 
+                          # number of worker instances
+                          instances:
+                            type: integer
+                          # number of worker cores
+                          cores:
+                            type: string
+                          # number of worker memory
+                          memory:
+                            type: string
+                          # match nodes
+                          matchLabels:
                             type: object
                             properties:
-                              matchLabels:
-                                type: object
-                                properties:
-                                  kubernetes.io/hostname:
-                                    type: string
+                              kubernetes.io/hostname:
+                                type: string
                     # end selector
                     # tolerations
                     tolerations: 
@@ -191,6 +187,7 @@ spec:
                 # metrics exposed or not
                 metrics:
                   type: boolean
+                # if set required when submitting applications
                 secret:
                   type: string
             # subresource status
