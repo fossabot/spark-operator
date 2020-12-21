@@ -70,6 +70,7 @@ public abstract class AbstractCrdController<
             logger.trace("No namespace found via config, assuming " + namespace);
         }
         
+        this.crdPath = crdPath;
         this.crdMetadata = loadYaml(crdPath);
 
         this.blockingQueue = new ArrayBlockingQueue<>(WORKING_QUEUE_SIZE);

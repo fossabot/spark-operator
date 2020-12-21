@@ -5,9 +5,11 @@ metadata:
 spec:
   master:
     selectors:
-      - selector: 
-         matchLabels:
-           kubernetes.io/hostname: "bawa-virtualbox"
+      - instances: 1
+        cores: "1"
+        memory: "1g" 
+        matchLabels:
+          kubernetes.io/hostname: "bawa-virtualbox"
     tolerations:
       - key: "kubernetes.io/arch"
         operator: "Equal"
@@ -28,35 +30,29 @@ spec:
         operator: "Exists"
         effect: "NoExecute"
         tolerationSeconds: 300
-    instances: 1
-    # no cpu defaults to take all
-    cores: "1"
-    # no memory defaults to take all
-    memory: "2g"
     commands:
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-master.sh"
     # spark-defaults.conf
-    sparkConfiguration:
-    # required for secret
-    - name: "spark.authenticate"
-      value: "true"
-    # actual secret for secret
-    - name: "spark.authenticate.secret"
-      value: "stackable_secret" 
+    #sparkConfiguration:
     # spark-env.sh
     env:
-      - name: "SPARK_CONF_DIR"
-        value: "{{configroot}}/conf"
         # do not fork processes
       - name: "SPARK_NO_DAEMONIZE"
         value: "true"
-#      - name: "SPARK_MASTER_PORT"
-#        value: "7077"
+      - name: "SPARK_CONF_DIR"
+        value: "{{configroot}}/conf"
   worker:
     selectors:
-      - selector: 
-         matchLabels:
-           kubernetes.io/hostname: "bawa-virtualbox"
+      - instances: 1
+        cores: "1"
+        memory: "4g" 
+        matchLabels:
+          kubernetes.io/hostname: "bawa-virtualbox"
+      - instances: 1
+        cores: "2"
+        memory: "5g" 
+        matchLabels:
+          kubernetes.io/hostname: "bawa-virtualbox"
     tolerations:
       - key: "kubernetes.io/arch"
         operator: "Equal"
@@ -77,30 +73,20 @@ spec:
         operator: "Exists"
         effect: "NoExecute"
         tolerationSeconds: 300
-    # number of workers
-    instances: 2 
-    # no cpu defaults to take all
-    cores: "1"
-    # no memory defaults to take all
-    memory: "4g"
-    # end of customization
     commands:
       # hostname and port provided from operator: start-slave.sh args: spark://MASTER_URL:MASTER_PORT
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-slave.sh"
     # spark-defaults.conf
     sparkConfiguration:
-    - name: "spark.authenticate"
-      value: "true"
-    - name: "spark.authenticate.secret"
-      value: "stackable_secret" 
+      - name: "spark.executor.memory"
+        value: "2g"
     # spark-env.sh
     env:
-      - name: "SPARK_CONF_DIR"
-        value: "{{configroot}}/conf"
         # do not fork processes
       - name: "SPARK_NO_DAEMONIZE"
         value: "true"
-#      - name: "SPARK_MASTER_PORT"
-#        value: "7077"
+      - name: "SPARK_CONF_DIR"
+        value: "{{configroot}}/conf"
   image: "spark:3.0.1"
   metrics: false
+  secret: "stackable_secret"

@@ -314,7 +314,13 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
     	for(SparkNode node : nodes) {
 	        String nodeName = createPodName(cluster, node, false);
 	        
-	        for (Pod pod : podLister.list()) {
+	        List<Pod> pods = podLister.list();
+	        // not in cache (for testing)
+	        if(pods.size() == 0) {
+	        	pods = client.pods().list().getItems();
+	        }
+	        
+	        for (Pod pod : pods) {
 	        	// filter for pods not belonging to cluster
 	        	if(podInCluster(pod) == null) {
 	        		continue;
@@ -344,7 +350,6 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
     	if(withUUID) {
     		podName += UUID.randomUUID().toString().replace("-", "").substring(0, 8);	
     	}
-    	
     	return podName;
     }
     
@@ -396,6 +401,15 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
         String sparkClusterKind = getCrdContext(crdMetadata).getKind();
         if (ownerReference.getKind().equalsIgnoreCase(sparkClusterKind)) {
         	cluster = crdLister.get(ownerReference.getName());
+        	// not in cache (for testing)
+        	if(cluster == null) {
+        		List<SparkCluster> sparkClusters = crdClient.list().getItems();
+        		for(SparkCluster sc: sparkClusters) {
+        			if(sc.getMetadata().getName().equals(ownerReference.getName())) {
+        				return sc;
+        			}
+        		}
+        	}
         }
         return cluster; 
     }
@@ -435,7 +449,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
             // create entry for spark-defaults.conf
             //
             StringBuffer sbConf = new StringBuffer();
-            // adapt secret
+            // add secret
             String secret = cluster.getSpec().getSecret();
             if(secret != null && !secret.isEmpty()) {
             	node.getSparkConfiguration().add(new EnvVar(SparkConfig.SPARK_AUTHENTICATE.getConfig(), "true", null));

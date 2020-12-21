@@ -44,6 +44,7 @@ public class SparkNode implements KubernetesResource {
      * Add all instances in given selectors
      * @return sum of instances in given selectors 
      */
+    @JsonIgnore
     public Integer getInstances() {
     	int instances = 0;
     	if(selectors.size() != 0) {

@@ -1,0 +1,25 @@
+apiVersion: spark.stackable.de/v1
+kind: SparkApplication
+metadata:
+  name: spark-application
+spec:
+  image: "spark"
+  mainApplicationFile: "target/classes/spark-3.0.1-bin-hadoop2.7/examples/jars/spark-examples_2.12-3.0.1.jar"
+  # from mini http server test
+  #mainApplicationFile: "http://127.0.0.1:8000/jars/spark-examples_2.12-3.0.1.jar"
+  mainClass: "org.apache.spark.examples.SparkPi"
+  # cluster fire and forget -> no status checks possible via operator
+  # client -> driver started locally needs to stay online to finish job
+  mode: "client"
+  secret: "stackable_secret"
+  driver:
+    cores: "1"
+    memory: "2g"
+  executor:
+    instances: 2
+    cores: "1"
+    memory: "2g"
+#  dependencies:
+#    - "jar1"
+  args:
+    - "5"

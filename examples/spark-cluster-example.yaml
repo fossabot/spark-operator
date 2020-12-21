@@ -77,7 +77,9 @@ spec:
       # hostname and port provided from operator: start-slave.sh args: spark://MASTER_URL:MASTER_PORT
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-slave.sh"
     # spark-defaults.conf
-    #sparkConfiguration:
+    sparkConfiguration:
+      - name: "spark.executor.memory"
+        value: "2g"
     # spark-env.sh
     env:
         # do not fork processes
