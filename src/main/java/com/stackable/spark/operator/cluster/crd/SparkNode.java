@@ -1,7 +1,9 @@
 package com.stackable.spark.operator.cluster.crd;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.JsonDeserializer;
@@ -22,15 +24,15 @@ public class SparkNode implements KubernetesResource {
 	private List<Toleration> tolerations = new ArrayList<Toleration>();
 	private List<String> commands = new ArrayList<String>();
 	private List<String> args = new ArrayList<String>();
-	private List<EnvVar> sparkConfiguration = new ArrayList<EnvVar>();
-	private List<EnvVar> env = new ArrayList<EnvVar>();
+	private Set<EnvVar> sparkConfiguration = new HashSet<EnvVar>();
+	private Set<EnvVar> env = new HashSet<EnvVar>();
 	
 	public SparkNode() {}
 	
     public SparkNode(
     		List<SparkNodeSelector> selectors, List<Toleration> tolerations, List<String> commands, 
-    		List<String> args, List<EnvVar> sparkConfiguration,
-    		List<EnvVar> env) {
+    		List<String> args, Set<EnvVar> sparkConfiguration,
+    		Set<EnvVar> env) {
 		super();
 		this.selectors = selectors;
 		this.tolerations = tolerations;
@@ -103,19 +105,19 @@ public class SparkNode implements KubernetesResource {
 		this.args = args;
 	}
 	
-	public List<EnvVar> getSparkConfiguration() {
+	public Set<EnvVar> getSparkConfiguration() {
 		return sparkConfiguration;
 	}
 
-	public void setSparkConfiguration(List<EnvVar> sparkConfiguration) {
+	public void setSparkConfiguration(Set<EnvVar> sparkConfiguration) {
 		this.sparkConfiguration = sparkConfiguration;
 	}
 
-	public List<EnvVar> getEnv() {
+	public Set<EnvVar> getEnv() {
 		return env;
 	}
 
-	public void setEnv(List<EnvVar> env) {
+	public void setEnv(Set<EnvVar> env) {
 		this.env = env;
 	}
 
@@ -124,8 +126,8 @@ public class SparkNode implements KubernetesResource {
 		private List<Toleration> tolerations = new ArrayList<Toleration>();
 		private List<String> commands = new ArrayList<String>();
 		private List<String> args = new ArrayList<String>();
-		private List<EnvVar> sparkConfiguration = new ArrayList<EnvVar>();
-		private List<EnvVar> env = new ArrayList<EnvVar>();
+		private Set<EnvVar> sparkConfiguration = new HashSet<EnvVar>();
+		private Set<EnvVar> env = new HashSet<EnvVar>();
 		
 		public Builder withSparkSelectors(List<SparkNodeSelector> selectors) {
 			this.selectors = selectors;
@@ -147,12 +149,12 @@ public class SparkNode implements KubernetesResource {
 			return this;
 		}
 		
-		public Builder withSparkConfiguration(List<EnvVar> sparkConfiguration) {
+		public Builder withSparkConfiguration(Set<EnvVar> sparkConfiguration) {
 			this.sparkConfiguration = sparkConfiguration;
 			return this;
 		}
 		
-		public Builder withEnvVars(List<EnvVar> env) {
+		public Builder withEnvVars(Set<EnvVar> env) {
 			this.env = env;
 			return this;
 		}

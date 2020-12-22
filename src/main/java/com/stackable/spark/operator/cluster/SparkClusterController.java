@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 import org.apache.log4j.Logger;
@@ -177,7 +178,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
 		                  	.withMountPath(SparkOperatorConfig.POD_CONTAINER_VOLUME_MOUNT_PATH.toString())
 		                  	.withName(cmName)
 		                .endVolumeMount()
-		                .withEnv(node.getEnv())
+		                .withEnv(List.copyOf(node.getEnv()))
 	                .endContainer()
             .endSpec()
             .build();
@@ -561,7 +562,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
      * @param sparkConfiguration - spark config given in specs
      * @param sb - string buffer to add to
      */
-    private void addToSparkConfig(List<EnvVar> sparkConfiguration, StringBuffer sb) {
+    private void addToSparkConfig(Set<EnvVar> sparkConfiguration, StringBuffer sb) {
     	for(EnvVar var: sparkConfiguration) {
     		String name = var.getName();
     		String value= var.getValue();

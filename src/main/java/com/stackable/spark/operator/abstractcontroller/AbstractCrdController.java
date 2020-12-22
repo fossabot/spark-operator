@@ -267,10 +267,10 @@ public abstract class AbstractCrdController<
 	 */
 	@SuppressWarnings("unchecked")
 	public <T extends CustomResource> MixedOperation<
-		T,
-		CustomResourceList<T>,
-		CustomResourceDoneable<T>,
-		Resource<T,CustomResourceDoneable<T>>> getCustomCrdClient(String crdPath, Class<T> t) {
+			T,
+			CustomResourceList<T>,
+			CustomResourceDoneable<T>,
+			Resource<T,CustomResourceDoneable<T>>> getCustomCrdClient(String crdPath, Class<T> t) {
 		// get cluster crd meta data
 		List<HasMetadata> clusterMetaData = loadYaml(crdPath);
 		CustomResourceDefinitionContext context = getCrdContext(clusterMetaData);
