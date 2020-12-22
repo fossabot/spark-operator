@@ -100,7 +100,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
 	}
 
 	@Override
-	protected void process(SparkCluster cluster) {
+	public void process(SparkCluster cluster) {
 		// TODO: except stopped?
 		// only go for cluster state machine if no systemd action is currently running
 		if(systemdStateMachine.process(cluster) == true) {
@@ -271,7 +271,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
      * @param cluster - cluster specification to retrieve all used pods
      * @return list of deleted pods
      */
-    public List<Pod> deletePods(SparkCluster cluster, String state, SparkNode ...nodes) {
+    public List<Pod> deletePods(SparkCluster cluster, SparkNode ...nodes) {
     	List<Pod> deletedPods = new ArrayList<Pod>();
 
         // if nodes are null take all
@@ -581,6 +581,10 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
     public boolean allPodsHaveStatus(List<Pod> pods, PodState status) {
 		boolean result = true;
     	for(Pod pod : pods) {
+    		if(pod.getStatus() == null) {
+    			return false;
+    		}
+    		
     		if(!pod.getStatus().getPhase().equals(status.toString())) {
     			result = false;
     		}

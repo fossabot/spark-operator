@@ -143,7 +143,7 @@ public abstract class AbstractCrdController<
 	 * @param controller - controller class extending AbstractCrdController
 	 * @param crd - specified CRD resource class for that controller
 	 */
-    protected abstract void process(Crd crd);
+    public abstract void process(Crd crd);
  
     /**
      * Overwrite method to add more informers to be synced (e.g. pods)
@@ -297,6 +297,10 @@ public abstract class AbstractCrdController<
 	
 	public void setClient(KubernetesClient client) {
 		this.client = client;
+	}
+	
+	public SharedInformerFactory getInformerFactory() {
+		return informerFactory;
 	}
 	
 	public List<HasMetadata> getCrdMetadata() {

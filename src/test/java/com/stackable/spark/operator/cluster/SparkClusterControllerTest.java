@@ -190,11 +190,11 @@ public class SparkClusterControllerTest {
     	assertEquals(0, retrievedMasterConfigMaps.size());
     	// delete all config maps
     	controller.deleteAllClusterConfigMaps(cluster);
-    	
+    	// master config maps deleted
     	retrievedMasterConfigMaps = controller.getConfigMaps(createdMasterPods, cluster);
     	assertNotNull(retrievedMasterConfigMaps);
     	assertEquals(0, retrievedMasterConfigMaps.size());
-    	
+    	// worker config maps deleted
     	retrievedWorkerConfigMaps = controller.getConfigMaps(createdMasterPods, cluster);
     	assertNotNull(retrievedWorkerConfigMaps);
     	assertEquals(0, retrievedWorkerConfigMaps.size());

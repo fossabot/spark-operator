@@ -31,8 +31,7 @@ public class SparkNode implements KubernetesResource {
 	
     public SparkNode(
     		List<SparkNodeSelector> selectors, List<Toleration> tolerations, List<String> commands, 
-    		List<String> args, Set<EnvVar> sparkConfiguration,
-    		Set<EnvVar> env) {
+    		List<String> args, Set<EnvVar> sparkConfiguration, Set<EnvVar> env) {
 		super();
 		this.selectors = selectors;
 		this.tolerations = tolerations;

@@ -37,7 +37,7 @@ public class SparkSystemdController extends AbstractCrdController<SparkSystemd,S
 	}
 	
 	@Override
-	protected void process(SparkSystemd systemd) {
+	public void process(SparkSystemd systemd) {
 		logger.trace("Got CRD: " + systemd.getMetadata().getName());
 		// get custom crd client
 		MixedOperation<SparkCluster, CustomResourceList<SparkCluster>, CustomResourceDoneable<SparkCluster>, Resource<SparkCluster, CustomResourceDoneable<SparkCluster>>> 

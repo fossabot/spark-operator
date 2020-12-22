@@ -35,7 +35,7 @@ public class SparkApplicationController extends	AbstractCrdController<SparkAppli
 	}
     
 	@Override
-	protected void process(SparkApplication app) {
+	public void process(SparkApplication app) {
 		logger.trace("Got CRD: " + app.getMetadata().getName());
 		sparkApplicationLauncher.launch(app, this);
 	}
