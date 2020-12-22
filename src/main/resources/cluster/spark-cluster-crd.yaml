@@ -202,7 +202,7 @@ spec:
                       properties:
                         command:
                           type: string
-                        timeStamp:
+                        reason:
                           type: string
                         startedAt:
                           type: string

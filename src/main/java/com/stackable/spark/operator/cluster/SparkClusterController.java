@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -397,7 +396,9 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
     private SparkCluster podInCluster(Pod pod) {
     	SparkCluster cluster = null;
     	OwnerReference ownerReference = getControllerOf(pod);
-        Objects.requireNonNull(ownerReference);
+    	if(ownerReference == null) { 
+    		return null;
+    	}
         // check if pod belongs to spark cluster
         String sparkClusterKind = getCrdContext(crdMetadata).getKind();
         if (ownerReference.getKind().equalsIgnoreCase(sparkClusterKind)) {

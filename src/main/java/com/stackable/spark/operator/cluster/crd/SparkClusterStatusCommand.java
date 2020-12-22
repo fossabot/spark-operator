@@ -14,17 +14,17 @@ public class SparkClusterStatusCommand implements KubernetesResource {
 
 	// preset for status update operation
 	private String command;
-	private String timeStamp;
+	private String reason;
 	private String startedAt;
 	private String finishedAt;
 	private String status;
 	
 	public SparkClusterStatusCommand() {}
 	
-	public SparkClusterStatusCommand(String command, String timeStamp, String startedAt, String finishedAt, String status) {
+	public SparkClusterStatusCommand(String command, String reason, String startedAt, String finishedAt, String status) {
 		super();
 		this.command = command;
-		this.timeStamp = timeStamp;
+		this.reason = reason;
 		this.startedAt = startedAt;
 		this.finishedAt = finishedAt;
 		this.status = status;
@@ -38,12 +38,12 @@ public class SparkClusterStatusCommand implements KubernetesResource {
 		this.command = command;
 	}
 	
-	public String getTimeStamp() {
-		return timeStamp;
+	public String getReason() {
+		return reason;
 	}
 	
-	public void setTimeStamp(String timeStamp) {
-		this.timeStamp = timeStamp;
+	public void setReason(String reason) {
+		this.reason = reason;
 	}
 	
 	public String getStartedAt() {
@@ -72,7 +72,7 @@ public class SparkClusterStatusCommand implements KubernetesResource {
 	
 	public static class Builder {
 		private String command;
-		private String timeStamp;
+		private String reason;
 		private String startedAt;
 		private String finishedAt;
 		private String status;
@@ -82,8 +82,8 @@ public class SparkClusterStatusCommand implements KubernetesResource {
 			return this;
 		}
 
-		public Builder withTimeStamp(String timeStamp) {
-			this.timeStamp = timeStamp;
+		public Builder withReason(String reason) {
+			this.reason = reason;
 			return this;
 		}
         
@@ -103,7 +103,7 @@ public class SparkClusterStatusCommand implements KubernetesResource {
 		}
         
         public SparkClusterStatusCommand build() {
-        	SparkClusterStatusCommand clusterCommand =  new SparkClusterStatusCommand(command, timeStamp, startedAt, finishedAt, status);
+        	SparkClusterStatusCommand clusterCommand =  new SparkClusterStatusCommand(command, reason, startedAt, finishedAt, status);
         	validateObject(clusterCommand);
             return clusterCommand;
         }

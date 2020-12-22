@@ -13,8 +13,8 @@ import com.stackable.spark.operator.cluster.crd.SparkClusterStatus;
 import com.stackable.spark.operator.cluster.crd.SparkClusterStatusImage;
 import com.stackable.spark.operator.cluster.crd.SparkNode;
 import com.stackable.spark.operator.cluster.statemachine.SparkClusterStateMachine.ClusterEvent;
-import com.stackable.spark.operator.cluster.statemachine.SparkSystemdStateMachine.SystemdEvent;
 import com.stackable.spark.operator.common.state.PodState;
+import com.stackable.spark.operator.common.state.SparkSystemdCommand;
 import com.stackable.spark.operator.common.state.SparkSystemdCommandState;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
@@ -82,8 +82,8 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
     		(cluster.getStatus().getSystemd() != null
     		&& cluster.getStatus().getSystemd().getRunningCommand() != null
     		&& cluster.getStatus().getSystemd().getRunningCommand().getStatus().equals(SparkSystemdCommandState.FINISHED.toString())
-    		&& SystemdEvent.getSystemdEvent(cluster.getStatus().getSystemd().getRunningCommand().getCommand()) 
-    		!= SystemdEvent.STOP)) {
+    		&& SparkSystemdCommand.getSystemdCommand(cluster.getStatus().getSystemd().getRunningCommand().getCommand()) 
+    		!= SparkSystemdCommand.STOP)) {
     		event = ClusterEvent.INITIAL;
     	}
 		// masters missing
@@ -167,7 +167,6 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
 				
 				logger.debug(String.format("[%s] - deleted %d configMap(s): %s", 
 	    				state.name(), deletedConfigMaps.size(), controller.metadataListToDebug(deletedConfigMaps)));
-
 				break;
 			}
 			case CREATE_MASTER: {

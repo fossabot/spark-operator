@@ -1,5 +1,7 @@
 package com.stackable.spark.operator.systemd;
 
+import java.util.List;
+
 import org.apache.log4j.Logger;
 
 import com.stackable.spark.operator.abstractcontroller.AbstractCrdController;
@@ -45,18 +47,27 @@ public class SparkSystemdController extends AbstractCrdController<SparkSystemd,S
 		
 		SparkCluster cluster = clusterCrdClient.inNamespace(namespace).withName(systemd.getSpec().getSparkClusterReference()).get();
 		
-		// set staged command in status
+		// status available?
 		SparkClusterStatus status = cluster == null ? null : cluster.getStatus();
+		
 		if(status == null) {
 			status = new SparkClusterStatus();
 		}
-		
-		status.setSystemd(new SparkClusterStatusSystemd.Builder()
-							.withSingleStagedCommand(systemd.getSpec().getSystemdAction())
-							.build()
-						 );
+		// no staged commands available
+		if(status.getSystemd() == null) {
+			status.setSystemd(new SparkClusterStatusSystemd.Builder()
+				.withSingleStagedCommand(systemd.getSpec().getSystemdAction())
+				.build()
+			);
+		}
+		// already existing staged commands
+		else {
+			List<String> stagedCommands = status.getSystemd().getStagedCommands();
+			stagedCommands.add(systemd.getSpec().getSystemdAction());
+		}
 		
 		cluster.setStatus(status);
+		
 		try {
 			// update status
 			clusterCrdClient.updateStatus(cluster);
