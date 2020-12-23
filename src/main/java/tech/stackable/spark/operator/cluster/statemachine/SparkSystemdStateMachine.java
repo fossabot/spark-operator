@@ -31,11 +31,11 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
 	@Override
 	public boolean process(SparkCluster cluster) {
 		SystemdEvent event = getEvent(cluster);
-		if( event == SystemdEvent.READY) {
-			return false;
+		if(event != SystemdEvent.READY) {
+			transition(cluster, event);
+			return true;
 		}
-		transition(cluster, event);
-		return true;
+		return false;
 	}
 	
 	@Override

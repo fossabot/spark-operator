@@ -1,6 +1,7 @@
 package tech.stackable.spark.operator.cluster;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -119,19 +120,20 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
         // If less then create new pods
         if (pods.size() < node.getInstances()) {
         	// check which host names are missing
-        	Map<String,List<Pod>> podsByHostName = splitPodsByHostName(pods, node);
-        	// check each node selector
-        	for(SparkNodeSelector selector: node.getSelectors()) {
-        		// get instances for each selector
-        		int instances = selector.getInstances();
-        		for(Entry<String,List<Pod>> entry: podsByHostName.entrySet()) { 
-	                for (int index = 0; index < instances - podsByHostName.get(entry.getKey()).size(); index++) {
-	                    Pod pod = client.pods()
-	                    			.inNamespace(cluster.getMetadata().getNamespace())
-	                    			.create(createNewPod(cluster, node));
-	                    createdPods.add(pod);
-	                }
-        		}
+        	Map<SparkNodeSelector,List<Pod>> podsByHostName = splitPodsBySelector(pods, node);
+
+       		for(Entry<SparkNodeSelector,List<Pod>> entry: podsByHostName.entrySet()) {
+       			SparkNodeSelector selector = entry.getKey();
+           		// get instances for each selector
+           		int instances = selector.getInstances();
+       			List<Pod> podsBySelector = entry.getValue();
+
+                for (int index = 0; index < instances - podsBySelector.size(); index++) {
+                    Pod pod = client.pods()
+                    			.inNamespace(cluster.getMetadata().getNamespace())
+                    			.create(createNewPod(cluster, node, selector));
+                    createdPods.add(pod);
+                }
         	}
         }
         return createdPods;
@@ -143,7 +145,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
      * @param node - master or worker node
      * @return pod create from specs
      */
-	private Pod createNewPod(SparkCluster cluster, SparkNode node) {
+	private Pod createNewPod(SparkCluster cluster, SparkNode node, SparkNodeSelector selector) {
 		String podName = createPodName(cluster, node, true);
 		String cmName = podName +  "-cm";
 		ConfigMapVolumeSource cms = new ConfigMapVolumeSourceBuilder().withName(cmName).build();
@@ -153,6 +155,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
             .withNewMetadata()
               .withName(podName)
               .withNamespace(cluster.getMetadata().getNamespace())
+              .withLabels(Collections.singletonMap(SparkOperatorConfig.POD_SELECTOR_NAME.toString(), selector.getName()))
               .addNewOwnerReference()
                   .withController(true)
                   .withApiVersion(cluster.getApiVersion())
@@ -164,7 +167,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
             .withNewSpec()
                 .withTolerations(node.getTolerations())
                 // TODO: check for null / zero elements
-                .withNodeSelector(node.getSelectors().get(0).getMatchLabels())
+                .withNodeSelector(selector.getMatchLabels())
                 .withVolumes(vol)
 	                .addNewContainer()
 	                	//TODO: no ":" etc in withName
@@ -188,8 +191,8 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
      * @param node - spark node (master/worker) 
      * @return HashMap<String,List<Pod> where the key is the hostname and value is a list of pods with that hostname
      */
-    private Map<String,List<Pod>> splitPodsByHostName(List<Pod> pods, SparkNode node) {
-    	Map<String,List<Pod>> podsByHost = new HashMap<>();
+    private Map<SparkNodeSelector,List<Pod>> splitPodsBySelector(List<Pod> pods, SparkNode node) {
+    	Map<SparkNodeSelector,List<Pod>> podsByHost = new HashMap<>();
 
 		// check in each node selector
     	for(SparkNodeSelector selector: node.getSelectors()) {
@@ -197,13 +200,15 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
     		String hostName = selector.getMatchLabels().get(SparkOperatorConfig.KUBERNETES_IO_HOSTNAME.toString());
     		
     		if(hostName != null) {
-    			podsByHost.put(hostName, new ArrayList<Pod>());
+    			podsByHost.put(selector, new ArrayList<Pod>());
     		}
     		
         	// each pod
         	for(Pod pod : pods) {
-        		if(pod.getSpec().getNodeName().equals(hostName)) {
-        			podsByHost.get(hostName).add(pod);
+        		// check if hostname and selector label matches
+        		if(pod.getSpec().getNodeName().equals(hostName) 
+        			&& selector.getName().equals(pod.getMetadata().getLabels().get(SparkOperatorConfig.POD_SELECTOR_NAME.toString()))) {
+        			podsByHost.get(selector).add(pod);
         		}
         	}
     	}
@@ -247,18 +252,41 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster,S
 	 */
     public List<Pod> deletePods(List<Pod> pods, SparkCluster cluster, SparkNode node) {
     	List<Pod> deletedPods = new ArrayList<Pod>();
-        // If more pods than spec delete old pods
-        int diff = pods.size() - node.getInstances();
-
-        for (; diff > 0; diff--) {
-        	// TODO: dont remove current master leader!
-            Pod pod = pods.remove(0);
-            client.pods()
+    	// remember processed pods to delete pods not machting any selector
+    	List<Pod> processedPods = new ArrayList<Pod>();
+        
+        Map<SparkNodeSelector,List<Pod>> podsBySelector = splitPodsBySelector(pods, node);
+        // delete pods from selector if not matching spec
+        for(Entry<SparkNodeSelector,List<Pod>> entry: podsBySelector.entrySet()) {
+        	List<Pod> podsInSelector = entry.getValue();
+        	SparkNodeSelector selector = entry.getKey();
+        	// add pods to processedPods
+        	processedPods.addAll(podsInSelector);
+            // If more pods than spec delete old pods
+            int diff = podsInSelector.size() - selector.getInstances();
+        	
+            for (; diff > 0; diff--) {
+            	// TODO: dont remove current master leader!
+                Pod pod = podsInSelector.remove(0);
+                client.pods()
+                	.inNamespace(cluster.getMetadata().getNamespace())
+                	.withName(pod.getMetadata().getName())
+                	.delete();
+                deletedPods.add(pod);
+            }
+        }
+        // delete pods not matching any selector
+        for(Pod pod: pods) {
+        	// delete if not in processed pods
+        	if(!processedPods.contains(pod)) {
+                client.pods()
             	.inNamespace(cluster.getMetadata().getNamespace())
             	.withName(pod.getMetadata().getName())
             	.delete();
-            deletedPods.add(pod);
+                deletedPods.add(pod);
+        	}
         }
+        
 		logger.debug(String.format("[%s] - deleted %d %s pod(s): %s", 
 				clusterStateMachine.getState().name(), deletedPods.size(), node.getPodTypeName(), metadataListToDebug(deletedPods)));
         return deletedPods;

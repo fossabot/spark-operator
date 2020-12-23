@@ -12,10 +12,19 @@ import io.fabric8.kubernetes.api.model.KubernetesResource;
 public class SparkNodeSelector implements KubernetesResource{
 	private static final long serialVersionUID = 2535064095918732663L;
 
+	private String name;
 	private Integer instances = 1;
 	private String memory;
 	private String cores;
 	private Map<String,String> matchLabels = new HashMap<String,String>();
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
 
 	public Integer getInstances() {
 		return instances;
@@ -57,6 +66,7 @@ public class SparkNodeSelector implements KubernetesResource{
 		result = prime * result + ((instances == null) ? 0 : instances.hashCode());
 		result = prime * result + ((matchLabels == null) ? 0 : matchLabels.hashCode());
 		result = prime * result + ((memory == null) ? 0 : memory.hashCode());
+		result = prime * result + ((name == null) ? 0 : name.hashCode());
 		return result;
 	}
 
@@ -89,7 +99,12 @@ public class SparkNodeSelector implements KubernetesResource{
 				return false;
 		} else if (!memory.equals(other.memory))
 			return false;
+		if (name == null) {
+			if (other.name != null)
+				return false;
+		} else if (!name.equals(other.name))
+			return false;
 		return true;
 	}
-	
+
 }

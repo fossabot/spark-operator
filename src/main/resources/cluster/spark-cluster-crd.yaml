@@ -46,6 +46,9 @@ spec:
                       items:
                         type: object
                         properties:
+                          # to identify selector
+                          name:
+                            type: string
                           # number of master instances
                           instances:
                             type: integer
@@ -118,6 +121,9 @@ spec:
                       items:
                         type: object
                         properties:
+                          # to identify selector
+                          name:
+                            type: string
                           # number of worker instances
                           instances:
                             type: integer

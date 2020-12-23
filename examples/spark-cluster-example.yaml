@@ -5,7 +5,8 @@ metadata:
 spec:
   master:
     selectors:
-      - instances: 1
+      - name: "master-bawa-virtualbox"
+        instances: 1
         cores: "1"
         memory: "1g" 
         matchLabels:
@@ -43,12 +44,14 @@ spec:
         value: "{{configroot}}/conf"
   worker:
     selectors:
-      - instances: 1
+      - name: "worker-1-core-4g-memory-bawa-virtualbox"
+        instances: 1
         cores: "1"
         memory: "4g" 
         matchLabels:
           kubernetes.io/hostname: "bawa-virtualbox"
-      - instances: 1
+      - name: "worker-2-core-5g-memory-bawa-virtualbox"
+        instances: 1
         cores: "2"
         memory: "5g" 
         matchLabels:
