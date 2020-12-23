@@ -17,7 +17,7 @@ spec:
     listKind: SparkClusterList
     # shortNames allow shorter string to match your resource on the CLI
     shortNames:
-    - sc
+      - sc
   # either Namespaced or Cluster
   scope: Namespaced
   # list of versions supported by this CustomResourceDefinition
@@ -29,7 +29,7 @@ spec:
       storage: true
       # enable status subresource
       subresources:
-        status: {}
+        status: { }
       schema:
         openAPIV3Schema:
           type: object
@@ -66,7 +66,7 @@ spec:
                                 type: string
                     # end selectors
                     # tolerations
-                    tolerations: 
+                    tolerations:
                       type: array
                       items:
                         type: object
@@ -74,13 +74,13 @@ spec:
                           key:
                             type: string
                           operator:
-                            type: string 
+                            type: string
                           effect:
                             type: string
                           value:
                             type: string
                           tolerationSeconds:
-                            type: integer   
+                            type: integer
                     # end tolerations
                     # command to be run for startup
                     commands:
@@ -98,9 +98,9 @@ spec:
                       items:
                         type: object
                         properties:
-                          name: 
+                          name:
                             type: string
-                          value: 
+                          value:
                             type: string
                     # environment variables set before startup
                     env:
@@ -108,9 +108,9 @@ spec:
                       items:
                         type: object
                         properties:
-                          name: 
+                          name:
                             type: string
-                          value: 
+                          value:
                             type: string
                 worker:
                   type: object
@@ -141,7 +141,7 @@ spec:
                                 type: string
                     # end selector
                     # tolerations
-                    tolerations: 
+                    tolerations:
                       type: array
                       items:
                         type: object
@@ -149,13 +149,13 @@ spec:
                           key:
                             type: string
                           operator:
-                            type: string 
+                            type: string
                           effect:
                             type: string
                           value:
                             type: string
                           tolerationSeconds:
-                            type: integer   
+                            type: integer
                     # end tolerations
                     # command to be run for startup
                     commands:
@@ -173,9 +173,9 @@ spec:
                       items:
                         type: object
                         properties:
-                          name: 
+                          name:
                             type: string
-                          value: 
+                          value:
                             type: string
                     # environment variables set before startup
                     env:
@@ -183,9 +183,9 @@ spec:
                       items:
                         type: object
                         properties:
-                          name: 
+                          name:
                             type: string
-                          value: 
+                          value:
                             type: string
                 # spark image if coming from repository
                 image:

@@ -11,31 +11,32 @@ import tech.stackable.spark.operator.cluster.SparkClusterController;
 
 @TestInstance(Lifecycle.PER_CLASS)
 public class SparkSystemdStateMachineTest {
-	public KubernetesServer server;
-	public KubernetesClient client;
-	
-	public SparkClusterController controller;
-	
-	public String namespace = "default";
-	public String crdPath = "cluster/spark-cluster-crd.yaml";
-	
-	public long resyncCycle = 5 * 1000L;
-	
-	@BeforeAll
-    public void init() {
-		server = new KubernetesServer(true, true);
-		server.before();
-		
-    	client = server.getClient();
-    	controller = new SparkClusterController(client, crdPath, resyncCycle);
-    }
 
-    @AfterAll
-    public void cleanUp() {
-    	client.close();
-		server.after();
-    }
-    
+  public KubernetesServer server;
+  public KubernetesClient client;
+
+  public SparkClusterController controller;
+
+  public String namespace = "default";
+  public String crdPath = "cluster/spark-cluster-crd.yaml";
+
+  public long resyncCycle = 5 * 1000L;
+
+  @BeforeAll
+  public void init() {
+    server = new KubernetesServer(true, true);
+    server.before();
+
+    client = server.getClient();
+    controller = new SparkClusterController(client, crdPath, resyncCycle);
+  }
+
+  @AfterAll
+  public void cleanUp() {
+    client.close();
+    server.after();
+  }
+
 //    @Test
 //    @DisplayName("Check systemd statemachine restart event transitions")
 //    public void testSparkSystemdStateMachineRestartTransition() {

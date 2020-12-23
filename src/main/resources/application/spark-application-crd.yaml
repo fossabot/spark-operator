@@ -19,7 +19,7 @@ spec:
     listKind: SparkApplicationList
     # shortNames allow shorter string to match your resource on the CLI
     shortNames:
-    - sa
+      - sa
   # list of versions supported by this CustomResourceDefinition
   versions:
     - name: v1
@@ -29,7 +29,7 @@ spec:
       storage: true
       # enable status subresource
       subresources:
-        status: {}
+        status: { }
       schema:
         openAPIV3Schema:
           type: object
@@ -65,14 +65,14 @@ spec:
                   type: string
                 driver:
                   type: object
-                  properties: 
-                    cores: 
+                  properties:
+                    cores:
                       type: string
                     coreLimit:
                       type: string
                     memory:
                       type: string
-                    memoryOverhead: 
+                    memoryOverhead:
                       type: string
                     image:
                       type: string
@@ -89,7 +89,7 @@ spec:
                       type: string
                     memory:
                       type: string
-                    memoryOverhead: 
+                    memoryOverhead:
                       type: string
                     image:
                       type: string
@@ -109,9 +109,9 @@ spec:
                   items:
                     type: object
                     properties:
-                      name: 
+                      name:
                         type: string
-                      value: 
+                      value:
                         type: string
                 # environment variables set before startup
                 env:
@@ -119,7 +119,7 @@ spec:
                   items:
                     type: object
                     properties:
-                      name: 
+                      name:
                         type: string
-                      value: 
+                      value:
                         type: string

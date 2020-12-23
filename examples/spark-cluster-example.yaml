@@ -8,7 +8,7 @@ spec:
       - name: "master-bawa-virtualbox"
         instances: 1
         cores: "1"
-        memory: "1g" 
+        memory: "1g"
         matchLabels:
           kubernetes.io/hostname: "bawa-virtualbox"
     tolerations:
@@ -37,7 +37,7 @@ spec:
     #sparkConfiguration:
     # spark-env.sh
     env:
-        # do not fork processes
+      # do not fork processes
       - name: "SPARK_NO_DAEMONIZE"
         value: "true"
       - name: "SPARK_CONF_DIR"
@@ -47,13 +47,13 @@ spec:
       - name: "worker-1-core-4g-memory-bawa-virtualbox"
         instances: 1
         cores: "1"
-        memory: "4g" 
+        memory: "4g"
         matchLabels:
           kubernetes.io/hostname: "bawa-virtualbox"
       - name: "worker-2-core-5g-memory-bawa-virtualbox"
         instances: 1
         cores: "2"
-        memory: "5g" 
+        memory: "5g"
         matchLabels:
           kubernetes.io/hostname: "bawa-virtualbox"
     tolerations:
@@ -85,7 +85,7 @@ spec:
         value: "2g"
     # spark-env.sh
     env:
-        # do not fork processes
+      # do not fork processes
       - name: "SPARK_NO_DAEMONIZE"
         value: "true"
       - name: "SPARK_CONF_DIR"

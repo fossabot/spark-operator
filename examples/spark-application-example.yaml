@@ -19,7 +19,7 @@ spec:
     instances: 2
     cores: "1"
     memory: "2g"
-#  dependencies:
-#    - "jar1"
+  #  dependencies:
+  #    - "jar1"
   args:
     - "5"

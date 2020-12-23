@@ -9,6 +9,7 @@ import io.fabric8.kubernetes.api.model.apiextensions.v1.CustomResourceDefinition
 
 @JsonDeserialize(using = JsonDeserializer.None.class)
 @JsonInclude(Include.NON_NULL)
-public class SparkSystemdStatus extends CustomResourceDefinitionStatus{
-	private static final long serialVersionUID = -3689504450554921281L;
+public class SparkSystemdStatus extends CustomResourceDefinitionStatus {
+
+  private static final long serialVersionUID = -3689504450554921281L;
 }

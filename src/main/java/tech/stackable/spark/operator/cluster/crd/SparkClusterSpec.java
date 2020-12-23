@@ -7,52 +7,53 @@ import io.fabric8.kubernetes.api.model.KubernetesResource;
 
 @JsonDeserialize(using = JsonDeserializer.None.class)
 public class SparkClusterSpec implements KubernetesResource {
-	private static final long serialVersionUID = -4949229889562573739L;
-	
-	private SparkNodeMaster master;
-	private SparkNodeWorker worker;
-	private String image;
-    private Boolean metrics;
-    private String secret;
-	
-	public SparkNodeMaster getMaster() {
-		return master;
-	}
 
-	public void setMaster(SparkNodeMaster master) {
-		this.master = master;
-	}
+  private static final long serialVersionUID = -4949229889562573739L;
 
-	public SparkNodeWorker getWorker() {
-		return worker;
-	}
+  private SparkNodeMaster master;
+  private SparkNodeWorker worker;
+  private String image;
+  private Boolean metrics;
+  private String secret;
 
-	public void setWorker(SparkNodeWorker worker) {
-		this.worker = worker;
-	}
-	
-	public String getImage() {
-		return image;
-	}
+  public SparkNodeMaster getMaster() {
+    return master;
+  }
 
-	public void setImage(String image) {
-		this.image = image;
-	}
-	
-	public Boolean getMetrics() {
-		return metrics;
-	}
+  public void setMaster(SparkNodeMaster master) {
+    this.master = master;
+  }
 
-	public void setMetrics(Boolean metrics) {
-		this.metrics = metrics;
-	}
+  public SparkNodeWorker getWorker() {
+    return worker;
+  }
 
-	public String getSecret() {
-		return secret;
-	}
+  public void setWorker(SparkNodeWorker worker) {
+    this.worker = worker;
+  }
 
-	public void setSecret(String secret) {
-		this.secret = secret;
-	}
-	
+  public String getImage() {
+    return image;
+  }
+
+  public void setImage(String image) {
+    this.image = image;
+  }
+
+  public Boolean getMetrics() {
+    return metrics;
+  }
+
+  public void setMetrics(Boolean metrics) {
+    this.metrics = metrics;
+  }
+
+  public String getSecret() {
+    return secret;
+  }
+
+  public void setSecret(String secret) {
+    this.secret = secret;
+  }
+
 }

@@ -17,7 +17,7 @@ spec:
     listKind: SparkSystemdList
     # shortNames allow shorter string to match your resource on the CLI
     shortNames:
-    - ssd
+      - ssd
   # either Namespaced or Cluster
   scope: Namespaced
   # list of versions supported by this CustomResourceDefinition
@@ -29,7 +29,7 @@ spec:
       storage: true
       # enable status subresource
       subresources:
-        status: {}
+        status: { }
       schema:
         openAPIV3Schema:
           type: object

@@ -5,8 +5,9 @@ import io.fabric8.kubernetes.client.CustomResourceDoneable;
 import tech.stackable.spark.operator.cluster.SparkCluster;
 
 public class SparkClusterDoneable extends CustomResourceDoneable<SparkCluster> {
-	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public SparkClusterDoneable(SparkCluster cluster, Function function) {
-        super(cluster, function);
-	}
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public SparkClusterDoneable(SparkCluster cluster, Function function) {
+    super(cluster, function);
+  }
 }
