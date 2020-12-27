@@ -3,28 +3,28 @@ package tech.stackable.spark.operator.cluster.statemachine;
 public interface SparkStateMachine<CrdClass, Event> {
 
   /**
-   * Process cluster in the state machine: get events and run transitions
+   * process state machine: get events and run transitions
    *
-   * @param cluster - spark cluster
+   * @param crd - crd class
    *
    * @return true if any transitions took place
    */
-  public boolean process(CrdClass crd);
+  boolean process(CrdClass crd);
 
   /**
-   * Extract an event from the cluster state
+   * extract an event from the crd state
    *
-   * @param cluster - spark cluster
+   * @param crd - spark cluster
    *
    * @return event
    */
-  public Event getEvent(CrdClass crd);
+  Event getEvent(CrdClass crd);
 
   /**
    * Apply transitions through the state machine depending on incoming events
    *
-   * @param cluster - spark cluster
+   * @param crd - crd class
    * @param event   - for the transition
    */
-  public void transition(CrdClass crd, Event event);
+  void transition(CrdClass crd, Event event);
 }

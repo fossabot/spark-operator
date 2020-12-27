@@ -23,7 +23,6 @@ public class SparkClusterStatusSystemd implements KubernetesResource {
   }
 
   public SparkClusterStatusSystemd(SparkClusterStatusCommand runningCommand, List<String> stagedCommands) {
-    super();
     this.runningCommand = runningCommand;
     this.stagedCommands = stagedCommands;
   }
@@ -60,20 +59,16 @@ public class SparkClusterStatusSystemd implements KubernetesResource {
     }
 
     public Builder withSingleStagedCommand(String stagedCommand) {
-      if (this.stagedCommands == null) {
-        this.stagedCommands = new ArrayList<String>();
+      if (stagedCommands == null) {
+        stagedCommands = new ArrayList<>();
       }
-      this.stagedCommands.add(stagedCommand);
+      stagedCommands.add(stagedCommand);
       return this;
     }
 
     public SparkClusterStatusSystemd build() {
-      SparkClusterStatusSystemd status = new SparkClusterStatusSystemd(runningCommand, stagedCommands);
-      validateObject(status);
-      return status;
+      return new SparkClusterStatusSystemd(runningCommand, stagedCommands);
     }
 
-    private void validateObject(SparkClusterStatusSystemd status) {
-    }
   }
 }

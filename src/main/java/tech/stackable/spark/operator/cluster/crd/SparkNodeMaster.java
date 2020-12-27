@@ -11,6 +11,6 @@ public class SparkNodeMaster extends SparkNode {
   public static final String POD_TYPE = "master";
 
   public SparkNodeMaster() {
-    this.setTypeName(POD_TYPE);
+    setTypeName(POD_TYPE);
   }
 }

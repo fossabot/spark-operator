@@ -126,13 +126,10 @@ public class SparkApplicationDriver implements KubernetesResource {
       return false;
     }
     if (serviceAccount == null) {
-      if (other.serviceAccount != null) {
-        return false;
-      }
-    } else if (!serviceAccount.equals(other.serviceAccount)) {
-      return false;
+      return other.serviceAccount == null;
+    } else {
+      return serviceAccount.equals(other.serviceAccount);
     }
-    return true;
   }
 
 }

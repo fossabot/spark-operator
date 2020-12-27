@@ -6,7 +6,6 @@ import tech.stackable.spark.operator.application.SparkApplication;
 
 public class SparkApplicationDoneable extends CustomResourceDoneable<SparkApplication> {
 
-  @SuppressWarnings({"rawtypes", "unchecked"})
   public SparkApplicationDoneable(SparkApplication application, Function function) {
     super(application, function);
   }

@@ -1,5 +1,7 @@
 package tech.stackable.spark.operator.abstractcontroller.crd;
 
+import java.io.Serializable;
+
 import io.fabric8.kubernetes.client.CustomResource;
 
 /**
@@ -8,7 +10,7 @@ import io.fabric8.kubernetes.client.CustomResource;
  * @param <Spec>   - crd spec
  * @param <Status> - crd status
  */
-public class CrdClass<Spec, Status> extends CustomResource {
+public class CrdClass<Spec extends Serializable, Status extends Serializable> extends CustomResource {
 
   private static final long serialVersionUID = 2364656081820201645L;
 
@@ -19,7 +21,6 @@ public class CrdClass<Spec, Status> extends CustomResource {
   }
 
   public CrdClass(Spec spec, Status status) {
-    super();
     this.spec = spec;
     this.status = status;
   }
@@ -28,9 +29,7 @@ public class CrdClass<Spec, Status> extends CustomResource {
     return spec;
   }
 
-  public void setSpec(Spec spec) {
-    this.spec = spec;
-  }
+  public void setSpec(Spec spec) { this.spec = spec; }
 
   public Status getStatus() {
     return status;

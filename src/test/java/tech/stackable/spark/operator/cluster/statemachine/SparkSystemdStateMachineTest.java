@@ -12,15 +12,14 @@ import tech.stackable.spark.operator.cluster.SparkClusterController;
 @TestInstance(Lifecycle.PER_CLASS)
 public class SparkSystemdStateMachineTest {
 
-  public KubernetesServer server;
-  public KubernetesClient client;
+  private KubernetesServer server;
+  private KubernetesClient client;
 
-  public SparkClusterController controller;
+  private SparkClusterController controller;
 
-  public String namespace = "default";
-  public String crdPath = "cluster/spark-cluster-crd.yaml";
+  private static final String CRD_PATH = "cluster/spark-cluster-crd.yaml";
 
-  public long resyncCycle = 5 * 1000L;
+  private static final long RESYNC_CYCLE = 5 * 1000L;
 
   @BeforeAll
   public void init() {
@@ -28,7 +27,7 @@ public class SparkSystemdStateMachineTest {
     server.before();
 
     client = server.getClient();
-    controller = new SparkClusterController(client, crdPath, resyncCycle);
+    controller = new SparkClusterController(client, CRD_PATH, RESYNC_CYCLE);
   }
 
   @AfterAll

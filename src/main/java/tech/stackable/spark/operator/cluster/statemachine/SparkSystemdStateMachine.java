@@ -1,7 +1,7 @@
 package tech.stackable.spark.operator.cluster.statemachine;
 
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
@@ -12,44 +12,43 @@ import tech.stackable.spark.operator.cluster.SparkCluster;
 import tech.stackable.spark.operator.cluster.SparkClusterController;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusCommand;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusSystemd;
-import tech.stackable.spark.operator.cluster.crd.SparkNode;
 import tech.stackable.spark.operator.cluster.statemachine.SparkSystemdStateMachine.SystemdEvent;
 import tech.stackable.spark.operator.common.state.SparkSystemdCommand;
 import tech.stackable.spark.operator.common.state.SparkSystemdCommandState;
 
 public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster, SystemdEvent> {
 
-  private static final Logger logger = Logger.getLogger(SparkSystemdStateMachine.class.getName());
+  private static final Logger LOGGER = Logger.getLogger(SparkSystemdStateMachine.class.getName());
 
   private SystemdState state;
-  private SparkClusterController controller;
+  private final SparkClusterController controller;
 
   public SparkSystemdStateMachine(SparkClusterController controller) {
-    this.state = SystemdState.SYSTEMD_READY;
+    state = SystemdState.SYSTEMD_READY;
     this.controller = controller;
   }
 
   @Override
-  public boolean process(SparkCluster cluster) {
-    SystemdEvent event = getEvent(cluster);
+  public boolean process(SparkCluster crd) {
+    SystemdEvent event = getEvent(crd);
     if (event != SystemdEvent.READY) {
-      transition(cluster, event);
+      transition(crd, event);
       return true;
     }
     return false;
   }
 
   @Override
-  public SystemdEvent getEvent(SparkCluster cluster) {
-    SystemdEvent event = SystemdEvent.READY;
+  public SystemdEvent getEvent(SparkCluster crd) {
     // no status -> nothing to do
-    if (cluster.getStatus() == null || cluster.getStatus().getSystemd() == null) {
+    if (crd.getStatus() == null || crd.getStatus().getSystemd() == null) {
       return SystemdEvent.READY;
     }
 
-    SparkClusterStatusSystemd systemdStatus = cluster.getStatus().getSystemd();
+    SparkClusterStatusSystemd systemdStatus = crd.getStatus().getSystemd();
 
     // (no running command or running command is finished or failed) AND (staged command available)
+    SystemdEvent event = SystemdEvent.READY;
     if ((systemdStatus.getRunningCommand() == null
       || systemdStatus.getRunningCommand().getStatus().equals(SparkSystemdCommandState.FAILED.toString())
       || systemdStatus.getRunningCommand().getStatus().equals(SparkSystemdCommandState.FINISHED.toString()))
@@ -62,7 +61,7 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
       SparkSystemdCommand systemdCommand = SparkSystemdCommand.getSystemdCommand(systemdStatus.getRunningCommand().getCommand());
       // event == update AND image not updated
       if (systemdCommand == SparkSystemdCommand.UPDATE
-        && cluster.getStatus().getImage().getName().equals(cluster.getSpec().getImage())) {
+        && crd.getStatus().getImage().getName().equals(crd.getSpec().getImage())) {
         event = SystemdEvent.IMAGE_NOT_UPDATED;
       }
       // STOP
@@ -78,9 +77,9 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
     // command == running
     else if (systemdStatus.getRunningCommand() != null
       && systemdStatus.getRunningCommand().getStatus().equals(SparkSystemdCommandState.RUNNING.toString())) {
-      List<Pod> pods = controller.getPodsByNode(cluster, (SparkNode[]) null);
+      List<Pod> pods = controller.getPodsByNode(crd, crd.getSpec().getMaster(), crd.getSpec().getWorker());
       // pods deleted?
-      if (pods.size() == 0) {
+      if (pods.isEmpty()) {
         event = SystemdEvent.PODS_DELETED;
       }
     }
@@ -93,77 +92,71 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
     }
     // else log
     else {
-      logger.debug(String.format("[%s] - systemd event: %s", state.name(), event.name()));
+      LOGGER.debug(String.format("[%s] - systemd event: %s", state.name(), event.name()));
     }
 
     return event;
   }
 
   @Override
-  public void transition(SparkCluster cluster, SystemdEvent event) {
+  public void transition(SparkCluster crd, SystemdEvent event) {
     switch (state) {
-      case SYSTEMD_READY: {
+      case SYSTEMD_READY:
         break;
-      }
-      case SYSTEMD_START_COMMAND: {
-        if (cluster.getStatus().getSystemd().getStagedCommands().size() == 0) {
+      case SYSTEMD_START_COMMAND:
+        if (crd.getStatus().getSystemd().getStagedCommands().isEmpty()) {
           break;
         }
 
-        String stagedCommand = cluster.getStatus().getSystemd().getStagedCommands().remove(0);
+        String stagedCommand = crd.getStatus().getSystemd().getStagedCommands().remove(0);
         // set staged to running
-        cluster.getStatus().getSystemd().setRunningCommand(
+        crd.getStatus().getSystemd().setRunningCommand(
           new SparkClusterStatusCommand.Builder()
             .withCommand(stagedCommand)
             .withStartedAt(String.valueOf(System.currentTimeMillis()))
             .withStatus(SparkSystemdCommandState.STARTED.toString())
             .build()
         );
-        controller.getCrdClient().updateStatus(cluster);
+        controller.getCrdClient().updateStatus(crd);
         break;
-      }
-      case SYSTEMD_IMAGE_NOT_UPDATED: {
+      case SYSTEMD_IMAGE_NOT_UPDATED:
         // no image updated
-        if (cluster.getStatus().getImage().getName().equals(cluster.getSpec().getImage())) {
+        if (crd.getStatus().getImage().getName().equals(crd.getSpec().getImage())) {
           // set status failed
-          cluster.getStatus().getSystemd().getRunningCommand().setStatus(SparkSystemdCommandState.FAILED.name());
-          cluster.getStatus().getSystemd().getRunningCommand().setReason("No updated image available!");
-          controller.getCrdClient().updateStatus(cluster);
-          logger.warn(String.format("[%s] - no updated image available: command %s",
+          crd.getStatus().getSystemd().getRunningCommand().setStatus(SparkSystemdCommandState.FAILED.name());
+          crd.getStatus().getSystemd().getRunningCommand().setReason("No updated image available!");
+          controller.getCrdClient().updateStatus(crd);
+          LOGGER.warn(String.format("[%s] - no updated image available: command %s",
             state, SparkSystemdCommandState.FAILED.name()));
         }
         break;
-      }
-      case SYSTEMD_JOBS_FINISHED: {
+      case SYSTEMD_JOBS_FINISHED:
         // TODO: check if all spark jobs are finished
         if (true /* all spark jobs finished */) {
           // set staged to running
-          cluster.getStatus().getSystemd().getRunningCommand().setStatus(SparkSystemdCommandState.RUNNING.name());
-          controller.getCrdClient().updateStatus(cluster);
+          crd.getStatus().getSystemd().getRunningCommand().setStatus(SparkSystemdCommandState.RUNNING.name());
+          controller.getCrdClient().updateStatus(crd);
           // delete all pods
-          List<Pod> deletedPods = controller.deletePods(cluster);
+          List<Pod> deletedPods = controller.deletePods(crd, crd.getSpec().getMaster(), crd.getSpec().getWorker());
 
-          logger.debug(String.format("[%s] - deleted %d pod(s): %s",
-            state, deletedPods.size(), controller.metadataListToDebug(deletedPods)));
+          LOGGER.debug(String.format("[%s] - deleted %d pod(s): %s",
+            state, deletedPods.size(), SparkClusterController.metadataListToDebug(deletedPods)));
         }
         break;
-      }
-      case SYSTEMD_PODS_DELETED: {
+      case SYSTEMD_PODS_DELETED:
         // set status running command to finished
-        SparkClusterStatusCommand runningCommand = cluster.getStatus().getSystemd().getRunningCommand();
+        SparkClusterStatusCommand runningCommand = crd.getStatus().getSystemd().getRunningCommand();
         runningCommand.setStatus(SparkSystemdCommandState.FINISHED.toString());
         // set running command finished timestamp
         runningCommand.setFinishedAt(String.valueOf(System.currentTimeMillis()));
-        cluster.getStatus().getSystemd().setRunningCommand(runningCommand);
+        crd.getStatus().getSystemd().setRunningCommand(runningCommand);
 
-        controller.getCrdClient().updateStatus(cluster);
+        controller.getCrdClient().updateStatus(crd);
         // TODO: reset state in cluster?
         break;
-      }
-      case SYSTEMD_STOPPED: {
+      case SYSTEMD_STOPPED:
         // wait for START
         break;
-      }
     }
   }
 
@@ -216,29 +209,29 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
     );
 
     private final List<SystemdEvent> events;
-    private final static Map<SystemdEvent, SystemdState> map = new HashMap<>();
+    private static final Map<SystemdEvent, SystemdState> TRANSITIONS = new EnumMap<>(SystemdEvent.class);
 
     SystemdState(SystemdEvent... in) {
-      this.events = Arrays.asList(in);
+      events = Arrays.asList(in);
     }
 
-    public SystemdState nextState(SystemdEvent event, SystemdState current) {
+    private SystemdState nextState(SystemdEvent event, SystemdState current) {
       SystemdState newState = current;
       if (events.contains(event)) {
-        newState = map.getOrDefault(event, current);
+        newState = TRANSITIONS.getOrDefault(event, current);
       }
-      logger.trace(String.format("[%s ==> %s]", current.name(), newState.name()));
+      LOGGER.trace(String.format("[%s ==> %s]", current.name(), newState.name()));
       return newState;
     }
 
     // transitions (event,newState)
     static {
-      map.put(SystemdEvent.START_COMMAND, SystemdState.SYSTEMD_START_COMMAND);
-      map.put(SystemdEvent.IMAGE_NOT_UPDATED, SystemdState.SYSTEMD_IMAGE_NOT_UPDATED);
-      map.put(SystemdEvent.JOBS_FINISHED, SystemdState.SYSTEMD_JOBS_FINISHED);
-      map.put(SystemdEvent.PODS_DELETED, SystemdState.SYSTEMD_PODS_DELETED);
-      map.put(SystemdEvent.STOP_COMMAND, SystemdState.SYSTEMD_STOPPED);
-      map.put(SystemdEvent.READY, SystemdState.SYSTEMD_READY);
+      TRANSITIONS.put(SystemdEvent.START_COMMAND, SYSTEMD_START_COMMAND);
+      TRANSITIONS.put(SystemdEvent.IMAGE_NOT_UPDATED, SYSTEMD_IMAGE_NOT_UPDATED);
+      TRANSITIONS.put(SystemdEvent.JOBS_FINISHED, SYSTEMD_JOBS_FINISHED);
+      TRANSITIONS.put(SystemdEvent.PODS_DELETED, SYSTEMD_PODS_DELETED);
+      TRANSITIONS.put(SystemdEvent.STOP_COMMAND, SYSTEMD_STOPPED);
+      TRANSITIONS.put(SystemdEvent.READY, SYSTEMD_READY);
     }
   }
 
@@ -269,7 +262,7 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
     /**
      * event if stop command arrived
      */
-    STOP_COMMAND;
+    STOP_COMMAND
   }
 
   public SystemdState getState() {

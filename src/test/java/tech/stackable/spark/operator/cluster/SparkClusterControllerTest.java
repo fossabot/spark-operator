@@ -4,8 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 
-import java.io.IOException;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -29,26 +27,26 @@ import tech.stackable.spark.operator.cluster.crd.SparkNode;
 import tech.stackable.spark.operator.common.type.SparkOperatorConfig;
 
 @TestInstance(Lifecycle.PER_CLASS)
-public class SparkClusterControllerTest {
+class SparkClusterControllerTest {
 
-  public KubernetesServer server;
-  public KubernetesClient client;
+  private KubernetesServer server;
+  private KubernetesClient client;
 
-  public SparkClusterController controller;
+  private SparkClusterController controller;
 
-  public String crdPath = "cluster/spark-cluster-crd.yaml";
-  public String crdExamplePath = "cluster/spark-cluster-example.yaml";
+  private static final String CRD_PATH = "cluster/spark-cluster-crd.yaml";
+  private static final String CRD_EXAMPLE_PATH = "cluster/spark-cluster-example.yaml";
 
-  public long resyncCycle = 5 * 1000L;
+  private static final long RESYNC_CYCLE = 5 * 1000L;
 
-  public static String SPARK_CLUSTER_KIND = "SparkCluster";
+  private static final String SPARK_CLUSTER_KIND = "SparkCluster";
 
   @BeforeEach
-  public void init() throws UnknownHostException {
+  public void init() {
     server = new KubernetesServer(true, true);
     server.before();
     client = server.getClient();
-    controller = new SparkClusterController(client, crdPath, resyncCycle);
+    controller = new SparkClusterController(client, CRD_PATH, RESYNC_CYCLE);
   }
 
   @AfterEach
@@ -59,7 +57,7 @@ public class SparkClusterControllerTest {
 
   @Test
   public void testLoadYaml() {
-    List<HasMetadata> crdList = controller.loadYaml(crdPath);
+    List<HasMetadata> crdList = controller.loadYaml(CRD_PATH);
     assertNotNull(crdList);
     assertEquals(1, crdList.size());
 
@@ -68,7 +66,7 @@ public class SparkClusterControllerTest {
   }
 
   @Test
-  public void testCrdClientCrud() throws IOException {
+  public void testCrdClientCrud() {
     // load spark-cluster-example.yaml
     SparkCluster cluster = loadClusterExample();
     assertNotNull(cluster);
@@ -122,11 +120,11 @@ public class SparkClusterControllerTest {
     Integer masterPodInstances = cluster.getSpec().getMaster().getInstances();
     Integer workerPodInstances = cluster.getSpec().getWorker().getInstances();
     // test create master pods
-    List<Pod> createdMasterPods = controller.createPods(new ArrayList<Pod>(), cluster, cluster.getSpec().getMaster());
+    List<Pod> createdMasterPods = controller.createPods(new ArrayList<>(), cluster, cluster.getSpec().getMaster());
     assertNotNull(createdMasterPods);
     assertEquals(masterPodInstances, createdMasterPods.size());
     // test create worker pods
-    List<Pod> createdWorkerPods = controller.createPods(new ArrayList<Pod>(), cluster, cluster.getSpec().getWorker());
+    List<Pod> createdWorkerPods = controller.createPods(new ArrayList<>(), cluster, cluster.getSpec().getWorker());
     assertNotNull(createdWorkerPods);
     assertEquals(workerPodInstances, createdWorkerPods.size());
     // test get master pods by node
@@ -138,7 +136,7 @@ public class SparkClusterControllerTest {
     assertNotNull(workerPods);
     assertEquals(workerPodInstances, workerPods.size());
     // test get all nodes
-    List<Pod> allPods = controller.getPodsByNode(cluster);
+    List<Pod> allPods = controller.getPodsByNode(cluster, cluster.getSpec().getMaster(), cluster.getSpec().getWorker());
     assertNotNull(allPods);
     assertEquals(masterPodInstances + workerPodInstances, allPods.size());
   }
@@ -152,11 +150,11 @@ public class SparkClusterControllerTest {
     Integer masterPodInstances = cluster.getSpec().getMaster().getInstances();
     Integer workerPodInstances = cluster.getSpec().getWorker().getInstances();
     // test create master pods
-    List<Pod> createdMasterPods = controller.createPods(new ArrayList<Pod>(), cluster, cluster.getSpec().getMaster());
+    List<Pod> createdMasterPods = controller.createPods(new ArrayList<>(), cluster, cluster.getSpec().getMaster());
     assertNotNull(createdMasterPods);
     assertEquals(masterPodInstances, createdMasterPods.size());
     // test create worker pods
-    List<Pod> createdWorkerPods = controller.createPods(new ArrayList<Pod>(), cluster, cluster.getSpec().getWorker());
+    List<Pod> createdWorkerPods = controller.createPods(new ArrayList<>(), cluster, cluster.getSpec().getWorker());
     assertNotNull(createdWorkerPods);
     assertEquals(workerPodInstances, createdWorkerPods.size());
 
@@ -182,8 +180,8 @@ public class SparkClusterControllerTest {
     assertNotNull(retrievedWorkerConfigMaps);
     assertEquals(workerPodInstances, retrievedWorkerConfigMaps.size());
     // compare via sets to ignore order
-    assertEquals(new HashSet<ConfigMap>(createdWorkerConfigMaps),
-      new HashSet<ConfigMap>(retrievedWorkerConfigMaps));
+    assertEquals(new HashSet<>(createdWorkerConfigMaps),
+      new HashSet<>(retrievedWorkerConfigMaps));
     // delete master config maps
     controller.deleteConfigMaps(createdMasterPods, cluster, cluster.getSpec().getMaster());
     retrievedMasterConfigMaps = controller.getConfigMaps(createdMasterPods, cluster);
@@ -205,7 +203,7 @@ public class SparkClusterControllerTest {
     // load spark-cluster-example.yaml
     SparkCluster cluster =
       controller.getCrdClient()
-        .load(Thread.currentThread().getContextClassLoader().getResourceAsStream(crdExamplePath))
+        .load(Thread.currentThread().getContextClassLoader().getResourceAsStream(CRD_EXAMPLE_PATH))
         .create();
     cluster.getMetadata().setUid("123456789");
     cluster.getMetadata().setNamespace(client.getNamespace());
@@ -213,7 +211,7 @@ public class SparkClusterControllerTest {
     return cluster;
   }
 
-  private void setNodeNames(List<Pod> pods, SparkNode node) {
+  private static void setNodeNames(List<Pod> pods, SparkNode node) {
     if (node.getSelectors() != null && node.getSelectors().size() > 0) {
       String nodeName = node.getSelectors().get(0).getMatchLabels().get(SparkOperatorConfig.KUBERNETES_IO_HOSTNAME.toString());
       for (Pod pod : pods) {

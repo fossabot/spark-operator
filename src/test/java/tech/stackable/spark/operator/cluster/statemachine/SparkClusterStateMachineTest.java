@@ -26,16 +26,16 @@ import tech.stackable.spark.operator.common.type.SparkOperatorConfig;
 @TestInstance(Lifecycle.PER_CLASS)
 public class SparkClusterStateMachineTest {
 
-  public KubernetesServer server;
-  public KubernetesClient client;
+  private KubernetesServer server;
+  private KubernetesClient client;
 
-  public SparkClusterController controller;
-  public Thread sparkClusterControllerThread;
+  private SparkClusterController controller;
+  private Thread sparkClusterControllerThread;
 
-  public String crdPath = "cluster/spark-cluster-crd.yaml";
-  public String crdExamplePath = "cluster/spark-cluster-example.yaml";
+  private static final String CRD_PATH = "cluster/spark-cluster-crd.yaml";
+  private static final String CRD_EXAMPLE_PATH = "cluster/spark-cluster-example.yaml";
 
-  public long resyncCycle = 500 * 1000L;
+  public static final long RESYNC_CYCLE = 500 * 1000L;
 
   @BeforeEach
   public void init() {
@@ -43,7 +43,7 @@ public class SparkClusterStateMachineTest {
     server.before();
 
     client = server.getClient();
-    controller = new SparkClusterController(client, crdPath, resyncCycle);
+    controller = new SparkClusterController(client, CRD_PATH, RESYNC_CYCLE);
   }
 
   @AfterEach
@@ -62,13 +62,13 @@ public class SparkClusterStateMachineTest {
   }
 
   @Test
-  public void testNonThreadedStateTransitions() throws InterruptedException {
+  public void testNonThreadedStateTransitions() {
     // initial state
     assertEquals(ClusterState.READY, controller.getClusterStateMachine().getState());
     // load spark-cluster-example.yaml
     SparkCluster cluster =
       controller.getCrdClient()
-        .load(Thread.currentThread().getContextClassLoader().getResourceAsStream(crdExamplePath))
+        .load(Thread.currentThread().getContextClassLoader().getResourceAsStream(CRD_EXAMPLE_PATH))
         .create();
     cluster.getMetadata().setUid("123456789");
     cluster.getMetadata().setNamespace(client.getNamespace());
@@ -168,7 +168,7 @@ public class SparkClusterStateMachineTest {
     }
   }
 
-  private ClusterState getState(SparkClusterController controller) {
+  private static ClusterState getState(SparkClusterController controller) {
     return controller.getClusterStateMachine().getState();
   }
 }

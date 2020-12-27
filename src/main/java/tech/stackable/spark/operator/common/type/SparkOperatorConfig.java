@@ -5,9 +5,9 @@ public enum SparkOperatorConfig {
   POD_SELECTOR_NAME("selectorName"),
   POD_CONTAINER_VOLUME_MOUNT_PATH("conf");
 
-  private String value;
+  private final String value;
 
-  private SparkOperatorConfig(String value) {
+  SparkOperatorConfig(String value) {
     this.value = value;
   }
 

@@ -11,6 +11,6 @@ public class SparkNodeWorker extends SparkNode {
   public static final String POD_TYPE = "worker";
 
   public SparkNodeWorker() {
-    this.setTypeName(POD_TYPE);
+    setTypeName(POD_TYPE);
   }
 }

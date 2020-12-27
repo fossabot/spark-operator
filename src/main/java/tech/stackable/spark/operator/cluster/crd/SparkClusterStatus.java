@@ -19,8 +19,7 @@ public class SparkClusterStatus extends CustomResourceDefinitionStatus {
   public SparkClusterStatus() {
   }
 
-  public SparkClusterStatus(SparkClusterStatusSystemd systemd, SparkClusterStatusImage image) {
-    super();
+  private SparkClusterStatus(SparkClusterStatusSystemd systemd, SparkClusterStatusImage image) {
     this.systemd = systemd;
     this.image = image;
   }
@@ -57,12 +56,8 @@ public class SparkClusterStatus extends CustomResourceDefinitionStatus {
     }
 
     public SparkClusterStatus build() {
-      SparkClusterStatus clusterStatus = new SparkClusterStatus(systemd, image);
-      validateObject(clusterStatus);
-      return clusterStatus;
+      return new SparkClusterStatus(systemd, image);
     }
 
-    private void validateObject(SparkClusterStatus clusterStatus) {
-    }
   }
 }

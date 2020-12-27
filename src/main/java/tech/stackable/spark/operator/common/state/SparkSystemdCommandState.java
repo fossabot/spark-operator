@@ -7,7 +7,7 @@ public enum SparkSystemdCommandState {
   FINISHED("FINISHED"),
   FAILED("FAILED");
 
-  private String state;
+  private final String state;
 
   SparkSystemdCommandState(String state) {
     this.state = state;

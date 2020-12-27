@@ -28,7 +28,7 @@ public enum PodState {
    */
   UNKNOWN("Unknown");
 
-  private String state;
+  private final String state;
 
   PodState(String state) {
     this.state = state;

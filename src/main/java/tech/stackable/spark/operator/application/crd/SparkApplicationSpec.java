@@ -25,10 +25,10 @@ public class SparkApplicationSpec implements KubernetesResource {
   private String secret;
   private SparkApplicationDriver driver;
   private SparkApplicationExecutor executor;
-  private List<String> dependencies = new ArrayList<String>();
-  private List<String> args = new ArrayList<String>();
-  private List<EnvVar> sparkConfiguration = new ArrayList<EnvVar>();
-  private List<EnvVar> env = new ArrayList<EnvVar>();
+  private List<String> dependencies = new ArrayList<>();
+  private List<String> args = new ArrayList<>();
+  private List<EnvVar> sparkConfiguration = new ArrayList<>();
+  private List<EnvVar> env = new ArrayList<>();
 
   public String getImage() {
     return image;
@@ -267,13 +267,10 @@ public class SparkApplicationSpec implements KubernetesResource {
       return false;
     }
     if (type == null) {
-      if (other.type != null) {
-        return false;
-      }
-    } else if (!type.equals(other.type)) {
-      return false;
+      return other.type == null;
+    } else {
+      return type.equals(other.type);
     }
-    return true;
   }
 
 }

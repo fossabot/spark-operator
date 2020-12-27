@@ -1,7 +1,9 @@
 package tech.stackable.spark.operator.abstractcontroller;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.ParameterizedType;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -26,8 +28,8 @@ import io.fabric8.kubernetes.client.informers.cache.Cache;
 import io.fabric8.kubernetes.client.informers.cache.Lister;
 
 /**
- * Abstract CRD Controller to work with customize CRDs. Applies given CRD and orders events (add, update, delete)
- * in an blocking queue. CRDClass extending CustomResource and CRDClassList extending CustomResourceList required!
+ * Abstract crd Controller to work with customize crds. Applies given crd and orders events (add, update, delete)
+ * in an blocking queue. crdClass extending CustomResource and crdClassList extending CustomResourceList required!
  *
  * @param <Crd>         - pojo extending CustomResource
  * @param <CrdList>     - pojo extending CustomResourceList
@@ -39,94 +41,105 @@ public abstract class AbstractCrdController<
   CrdDoneable extends CustomResourceDoneable<Crd>>
   implements Runnable {
 
-  private static final Logger logger = Logger.getLogger(AbstractCrdController.class.getName());
+  private static final Logger LOGGER = Logger.getLogger(AbstractCrdController.class.getName());
 
   private static final Integer WORKING_QUEUE_SIZE = 1024;
 
-  protected BlockingQueue<String> blockingQueue;
-  protected List<HasMetadata> crdMetadata;
-  protected String namespace;
-  protected String crdPath;
+  private final BlockingQueue<String> blockingQueue;
+  private final String crdPath;
+  private final Long resyncCycle;
 
-  protected KubernetesClient client;
-  protected SharedInformerFactory informerFactory;
+  private List<HasMetadata> crdMetadata;
+  private CustomResourceDefinitionContext crdContext;
+  private String namespace;
 
-  protected SharedIndexInformer<Crd> crdSharedIndexInformer;
-  protected Lister<Crd> crdLister;
+  private KubernetesClient client;
+  private SharedInformerFactory informerFactory;
 
-  protected MixedOperation<Crd, CrdList, CrdDoneable, Resource<Crd, CrdDoneable>> crdClient;
+  private SharedIndexInformer<Crd> crdSharedIndexInformer;
+  private Lister<Crd> crdLister;
 
-  @SuppressWarnings("unchecked")
-  public AbstractCrdController(KubernetesClient client, String crdPath, Long resyncCycle) {
+  private MixedOperation<Crd, CrdList, CrdDoneable, Resource<Crd, CrdDoneable>> crdClient;
+
+  protected AbstractCrdController(KubernetesClient client, String crdPath, Long resyncCycle) {
     this.client = client;
+    this.crdPath = crdPath;
+    this.resyncCycle = resyncCycle;
+
+    blockingQueue = new ArrayBlockingQueue<>(WORKING_QUEUE_SIZE);
 
     if (this.client == null) {
       this.client = new DefaultKubernetesClient();
     }
 
-    this.namespace = this.client.getNamespace();
+    namespace = this.client.getNamespace();
 
-    if (this.namespace == null) {
-      this.namespace = "default";
-      logger.trace("No namespace found via config, assuming " + namespace);
+    if (namespace == null) {
+      namespace = "default";
+      LOGGER.trace("No namespace found via config, assuming " + namespace);
     }
+  }
 
-    this.crdPath = crdPath;
-    this.crdMetadata = loadYaml(crdPath);
+  /**
+   * load crd context, init informers and crdClient, write crd and register event handlers
+   */
+  @SuppressWarnings("unchecked")
+  private void init() {
+    crdMetadata = loadYaml(crdPath);
 
-    this.blockingQueue = new ArrayBlockingQueue<>(WORKING_QUEUE_SIZE);
+    informerFactory = client.informers();
 
-    this.informerFactory = this.client.informers();
+    crdContext = getCrdContext(crdMetadata);
 
-    CustomResourceDefinitionContext context = getCrdContext(this.crdMetadata);
-
-    this.crdSharedIndexInformer = informerFactory.sharedIndexInformerForCustomResource(
-      context,
+    crdSharedIndexInformer = informerFactory.sharedIndexInformerForCustomResource(
+      crdContext,
       (Class<Crd>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0],
       (Class<CrdList>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[1],
       resyncCycle
     );
 
-    this.crdLister = new Lister<>(crdSharedIndexInformer.getIndexer(), namespace);
+    crdLister = new Lister<>(crdSharedIndexInformer.getIndexer(), namespace);
 
-    this.crdClient = this.client.customResources(
-      context,
+    crdClient = client.customResources(
+      crdContext,
       (Class<Crd>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0],
       (Class<CrdList>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[1],
       (Class<CrdDoneable>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[2]
     );
 
-    // initialize CRD -> should be one for each controller
-    createOrReplaceCRD(namespace, crdMetadata);
+    // initialize crd -> should be one for each controller
+    writeCrd(namespace, crdMetadata);
 
     // register events handler
     registerCrdEventHandler();
   }
 
   /**
-   * Build CRD context for the sharedIndexInformer or other operations from the CRD yaml spec
+   * Build crd context for the sharedIndexInformer or other operations from the crd yaml spec
    *
-   * @return CRD context
+   * @return crd context
    */
-  public CustomResourceDefinitionContext getCrdContext(List<HasMetadata> metadata) {
+  protected static CustomResourceDefinitionContext getCrdContext(List<HasMetadata> metadata) {
 
     CustomResourceDefinitionContext.Builder builder = new CustomResourceDefinitionContext.Builder();
     // check metadata
     if (metadata.isEmpty()) {
-      logger.warn("No metadata available - return null");
+      LOGGER.warn("No metadata available - return null");
       return null;
-    } else if (metadata.size() > 1) {
-      logger.warn("multiple crds available ... using first one");
+    }
+    if (metadata.size() > 1) {
+      LOGGER.warn("multiple crds available ... using first one");
     }
 
     CustomResourceDefinition crd = (CustomResourceDefinition) metadata.get(0);
 
     // check spec
     if (crd.getSpec().getVersions().isEmpty()) {
-      logger.warn("No versions available - return null");
+      LOGGER.warn("No versions available - return null");
       return null;
-    } else if (crd.getSpec().getVersions().size() > 1) {
-      logger.warn("multiple versions available ... using first one");
+    }
+    if (crd.getSpec().getVersions().size() > 1) {
+      LOGGER.warn("multiple versions available ... using first one");
     }
 
     builder.withVersion(crd.getSpec().getVersions().get(0).getName());
@@ -141,52 +154,63 @@ public abstract class AbstractCrdController<
   /**
    * Overwrite method to specify what should be done after the blocking queue has elements
    *
-   * @param controller - controller class extending AbstractCrdController
-   * @param crd        - specified CRD resource class for that controller
+   * @param crd        - specified crd resource class for that controller
    */
-  public abstract void process(Crd crd);
+  protected abstract void process(Crd crd);
+
+  /**
+   * Abstract method to overwrite if more than the crd should be registered
+   */
+  protected abstract void registerOtherInformers();
 
   /**
    * Overwrite method to add more informers to be synced (e.g. pods)
    */
   protected void waitForAllInformersSynced() {
-    while (!crdSharedIndexInformer.hasSynced()) {
-      ;
-    }
+    while (!crdSharedIndexInformer.hasSynced()) {}
   }
 
   /**
-   * Load yaml CRD from file path
+   * Load yaml crd from file path
    *
    * @param path - path to yaml file
    *
-   * @return List<HasMetadata> of that CRD
+   * @return List<HasMetadata> of that crd
    */
   public List<HasMetadata> loadYaml(String path) {
-    InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(path);
-    List<HasMetadata> result = client.load(is).get();
-    return client.resourceList(result).inNamespace(namespace).get();
-  }
+      try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(path)) {
+        List<HasMetadata> result = client.load(is).get();
+        return client.resourceList(result).inNamespace(namespace).get();
+      }
+      catch (IOException e) {
+        LOGGER.error(e.getMessage());
+        return null;
+      }
+    }
 
   /**
-   * Create or replace the CRD in the API Server
+   * Create or replace the crd in the API Server
    *
    * @param namespace - given namespace
    * @param metaData  - List<HasMetadata> from the yaml file
    *
-   * @return List<HasMetadata> of affected CRDs
+   * @return List<HasMetadata> of affected crds
    */
-  public List<HasMetadata> createOrReplaceCRD(String namespace, List<HasMetadata> metaData) {
-    List<HasMetadata> result = client.resourceList(metaData).inNamespace(namespace).createOrReplace();
-    return result;
+  private List<HasMetadata> writeCrd(String namespace, List<HasMetadata> metaData) {
+    return client.resourceList(metaData).inNamespace(namespace).createOrReplace();
   }
 
   /**
    * Waits until all informers are synced and waits for elements to be in the queue and runs process()
    */
+  @Override
   public void run() {
+    // init controller
+    init();
+    // add other informers
+    registerOtherInformers();
     // add informers
-    informerFactory.addSharedInformerEventListener(exception -> logger.fatal("Tip: missing/bad CRDs?\n" + exception));
+    informerFactory.addSharedInformerEventListener(exception -> LOGGER.fatal("Tip: missing/bad crds?\n" + exception));
     // start informers
     informerFactory.startAllRegisteredInformers();
     // wait until informers have synchronized
@@ -197,7 +221,7 @@ public abstract class AbstractCrdController<
         String key = blockingQueue.take();
         Objects.requireNonNull(key, "Key can't be null");
 
-        if (key.isEmpty() || (!key.contains("/"))) {
+        if (key.isEmpty() || !key.contains("/")) {
           continue;
         }
         // Get the crds resource's name from key which is in format namespace/name
@@ -212,38 +236,38 @@ public abstract class AbstractCrdController<
     }
   }
 
-  protected void onCrdAdd(Crd crd) {
+  private void onCrdAdd(Crd crd) {
     enqueueCrd(crd);
   }
 
-  protected void onCrdUpdate(Crd crdOld, Crd crdNew) {
+  private void onCrdUpdate(Crd crdOld, Crd crdNew) {
     enqueueCrd(crdNew);
   }
 
-  protected void onCrdDelete(Crd crd, boolean deletedFinalStateUnknown) {
-    // noop
+  private void onCrdDelete(Crd crd, boolean deletedFinalStateUnknown) {
+
   }
 
   /**
    * Register crd event handlers for add, update and delete
    */
   private void registerCrdEventHandler() {
-    this.crdSharedIndexInformer.addEventHandler(new ResourceEventHandler<Crd>() {
+    crdSharedIndexInformer.addEventHandler(new ResourceEventHandler<>() {
       @Override
       public void onAdd(Crd crd) {
-        logger.trace("onAdd: " + crd);
+        LOGGER.trace("onAdd: " + crd);
         onCrdAdd(crd);
       }
 
       @Override
       public void onUpdate(Crd crdOld, Crd crdNew) {
-        logger.trace("onUpdate:\ncrdOld: " + crdOld + "\ncrdNew: " + crdNew);
+        LOGGER.trace("onUpdate:\ncrdOld: " + crdOld + "\ncrdNew: " + crdNew);
         onCrdUpdate(crdOld, crdNew);
       }
 
       @Override
       public void onDelete(Crd crd, boolean deletedFinalStateUnknown) {
-        logger.trace("onDelete: " + crd);
+        LOGGER.trace("onDelete: " + crd);
         onCrdDelete(crd, deletedFinalStateUnknown);
       }
     });
@@ -252,7 +276,7 @@ public abstract class AbstractCrdController<
   /**
    * Add elements / events to the blocking queue
    *
-   * @param crd - your CRD class
+   * @param crd - your controller crd class
    */
   protected void enqueueCrd(Crd crd) {
     String key = Cache.metaNamespaceKeyFunc(crd);
@@ -264,60 +288,38 @@ public abstract class AbstractCrdController<
   /**
    * Return mixed operation for this crd controller
    *
-   * @return MixedOperation for specified controller
+   * @return MixedOperation for crd of this controller
    */
   public MixedOperation<Crd, CrdList, CrdDoneable, Resource<Crd, CrdDoneable>> getCrdClient() {
     return crdClient;
   }
 
-  /**
-   * Return mixed operation for another custom crd controller
-   *
-   * @param <T>     CrdClass extending CustomResource
-   * @param crdPath - path to yaml specification
-   *
-   * @return MixedOperation for specified controller
-   */
-  @SuppressWarnings("unchecked")
-  public <T extends CustomResource> MixedOperation<
-    T,
-    CustomResourceList<T>,
-    CustomResourceDoneable<T>,
-    Resource<T, CustomResourceDoneable<T>>> getCustomCrdClient(String crdPath, Class<T> t) {
-    // get cluster crd meta data
-    List<HasMetadata> clusterMetaData = loadYaml(crdPath);
-    CustomResourceDefinitionContext context = getCrdContext(clusterMetaData);
-
-    return client.customResources(
-      context,
-      t,
-      CustomResourceList.class,
-      CustomResourceDoneable.class
-    );
+  public CustomResourceDefinitionContext getCrdContext() {
+    return crdContext;
   }
 
   public String getNamespace() {
     return namespace;
   }
 
-  public void setNamespace(String namespace) {
-    this.namespace = namespace;
+  public Long getResyncCycle() {
+    return resyncCycle;
   }
 
   public KubernetesClient getClient() {
     return client;
   }
 
-  public void setClient(KubernetesClient client) {
-    this.client = client;
-  }
-
   public SharedInformerFactory getInformerFactory() {
     return informerFactory;
   }
 
-  public List<HasMetadata> getCrdMetadata() {
-    return crdMetadata;
+  public SharedIndexInformer<Crd> getCrdSharedIndexInformer() {
+    return crdSharedIndexInformer;
+  }
+
+  public Lister<Crd> getCrdLister() {
+    return crdLister;
   }
 
 }

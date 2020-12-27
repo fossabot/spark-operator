@@ -7,7 +7,7 @@ public enum SparkSystemdCommand {
   RESTART("RESTART"),
   UPDATE("UPDATE");
 
-  private String state;
+  private final String state;
 
   SparkSystemdCommand(String state) {
     this.state = state;
@@ -19,7 +19,7 @@ public enum SparkSystemdCommand {
 
   public static SparkSystemdCommand getSystemdCommand(String command) {
     if (command != null) {
-      SparkSystemdCommand[] commands = new SparkSystemdCommand[] {START, STOP, UPDATE, RESTART};
+      SparkSystemdCommand[] commands = {START, STOP, UPDATE, RESTART};
 
       for (SparkSystemdCommand systemdCommand : commands) {
         if (systemdCommand.toString().equals(command.toUpperCase())) {
@@ -27,6 +27,6 @@ public enum SparkSystemdCommand {
         }
       }
     }
-    return SparkSystemdCommand.UNKNOWN;
+    return UNKNOWN;
   }
 }

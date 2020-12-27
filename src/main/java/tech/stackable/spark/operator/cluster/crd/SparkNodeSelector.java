@@ -17,7 +17,7 @@ public class SparkNodeSelector implements KubernetesResource {
   private Integer instances = 1;
   private String memory;
   private String cores;
-  private Map<String, String> matchLabels = new HashMap<String, String>();
+  private Map<String, String> matchLabels = new HashMap<>();
 
   public String getName() {
     return name;
@@ -112,13 +112,10 @@ public class SparkNodeSelector implements KubernetesResource {
       return false;
     }
     if (name == null) {
-      if (other.name != null) {
-        return false;
-      }
-    } else if (!name.equals(other.name)) {
-      return false;
+      return other.name == null;
+    } else {
+      return name.equals(other.name);
     }
-    return true;
   }
 
 }

@@ -20,7 +20,6 @@ public class SparkClusterStatusImage implements KubernetesResource {
   }
 
   public SparkClusterStatusImage(String name, String timestamp) {
-    super();
     this.name = name;
     this.timestamp = timestamp;
   }
@@ -57,12 +56,8 @@ public class SparkClusterStatusImage implements KubernetesResource {
     }
 
     public SparkClusterStatusImage build() {
-      SparkClusterStatusImage image = new SparkClusterStatusImage(name, timestamp);
-      validateObject(image);
-      return image;
+      return new SparkClusterStatusImage(name, timestamp);
     }
 
-    private void validateObject(SparkClusterStatusImage image) {
-    }
   }
 }

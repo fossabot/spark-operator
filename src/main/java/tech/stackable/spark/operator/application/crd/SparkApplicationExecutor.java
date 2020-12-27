@@ -19,7 +19,7 @@ public class SparkApplicationExecutor implements KubernetesResource {
   private String memory;
   private String memoryOverhead;
   private String image;
-  private Map<String, String> labels = new HashMap<String, String>();
+  private Map<String, String> labels = new HashMap<>();
 
   public Integer getInstances() {
     return instances;
@@ -69,13 +69,9 @@ public class SparkApplicationExecutor implements KubernetesResource {
     this.image = image;
   }
 
-  public Map<String, String> getLabels() {
-    return labels;
-  }
+  public Map<String, String> getLabels() { return labels; }
 
-  public void setLabels(Map<String, String> labels) {
-    this.labels = labels;
-  }
+  public void setLabels(Map<String, String> labels) { this.labels = labels; }
 
   @Override
   public int hashCode() {
@@ -146,13 +142,10 @@ public class SparkApplicationExecutor implements KubernetesResource {
       return false;
     }
     if (memoryOverhead == null) {
-      if (other.memoryOverhead != null) {
-        return false;
-      }
-    } else if (!memoryOverhead.equals(other.memoryOverhead)) {
-      return false;
+      return other.memoryOverhead == null;
+    } else {
+      return memoryOverhead.equals(other.memoryOverhead);
     }
-    return true;
   }
 
 }

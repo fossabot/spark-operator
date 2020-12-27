@@ -24,7 +24,6 @@ public class SparkClusterStatusCommand implements KubernetesResource {
   }
 
   public SparkClusterStatusCommand(String command, String reason, String startedAt, String finishedAt, String status) {
-    super();
     this.command = command;
     this.reason = reason;
     this.startedAt = startedAt;
@@ -106,13 +105,8 @@ public class SparkClusterStatusCommand implements KubernetesResource {
     }
 
     public SparkClusterStatusCommand build() {
-      SparkClusterStatusCommand clusterCommand = new SparkClusterStatusCommand(command, reason, startedAt, finishedAt, status);
-      validateObject(clusterCommand);
-      return clusterCommand;
+      return new SparkClusterStatusCommand(command, reason, startedAt, finishedAt, status);
     }
 
-    private void validateObject(SparkClusterStatusCommand command) {
-    }
   }
-
 }
