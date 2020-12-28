@@ -28,7 +28,7 @@ import io.fabric8.kubernetes.client.informers.cache.Cache;
 import io.fabric8.kubernetes.client.informers.cache.Lister;
 
 /**
- * Abstract crd Controller to work with customize crds. Applies given crd and orders events (add, update, delete)
+ * Abstract CRD Controller to work with custom CRDs. Applies given CRD and orders events (add, update, delete)
  * in an blocking queue. crdClass extending CustomResource and crdClassList extending CustomResourceList required!
  *
  * @param <Crd>         - pojo extending CustomResource
@@ -76,7 +76,7 @@ public abstract class AbstractCrdController<
 
     if (namespace == null) {
       namespace = "default";
-      LOGGER.trace("No namespace found via config, assuming " + namespace);
+      LOGGER.trace("No namespace found via config, assuming {}", namespace);
     }
   }
 
@@ -178,7 +178,7 @@ public abstract class AbstractCrdController<
         return client.resourceList(result).inNamespace(namespace).get();
       }
       catch (IOException e) {
-        LOGGER.error(e.getMessage());
+        LOGGER.error("Error loading YAML from {}", path, e);
         return null;
       }
     }
