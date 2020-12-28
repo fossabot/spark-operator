@@ -9,8 +9,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 
-import org.apache.log4j.Logger;
-
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 import io.fabric8.kubernetes.api.model.ConfigMapVolumeSource;
@@ -29,6 +27,8 @@ import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
 import io.fabric8.kubernetes.client.informers.cache.Lister;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tech.stackable.spark.operator.abstractcontroller.AbstractCrdController;
 import tech.stackable.spark.operator.cluster.crd.SparkNode;
 import tech.stackable.spark.operator.cluster.crd.SparkNodeSelector;
@@ -48,7 +48,7 @@ import tech.stackable.spark.operator.common.type.SparkOperatorConfig;
  */
 public class SparkClusterController extends AbstractCrdController<SparkCluster, SparkClusterList, SparkClusterDoneable> {
 
-  private static final Logger LOGGER = Logger.getLogger(SparkClusterController.class.getName());
+  private static final Logger LOGGER = LoggerFactory.getLogger(SparkClusterController.class);
 
   private SharedIndexInformer<Pod> podInformer;
   private Lister<Pod> podLister;
@@ -96,7 +96,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
     podInformer.addEventHandler(new ResourceEventHandler<>() {
       @Override
       public void onAdd(Pod pod) {
-        LOGGER.trace("onAddPod: " + pod);
+        LOGGER.trace("onAddPod: {}", pod);
         handlePodObject(pod);
       }
 
@@ -105,13 +105,13 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
         if (oldPod.getMetadata().getResourceVersion().equals(newPod.getMetadata().getResourceVersion())) {
           return;
         }
-        LOGGER.trace("onUpdate:\npodOld: " + oldPod + "\npodNew: " + newPod);
+        LOGGER.trace("onUpdate:\npodOld: {}\npodNew: {}", oldPod, newPod);
         handlePodObject(newPod);
       }
 
       @Override
       public void onDelete(Pod pod, boolean deletedFinalStateUnknown) {
-        LOGGER.trace("onDeletePod: " + pod);
+        LOGGER.trace("onDeletePod: {}", pod);
       }
     });
   }
@@ -302,8 +302,6 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
       }
     }
 
-    LOGGER.debug(String.format("[%s] - deleted %d %s pod(s): %s",
-      clusterStateMachine.getState().name(), deletedPods.size(), node.getPodTypeName(), metadataListToDebug(deletedPods)));
     return deletedPods;
   }
 

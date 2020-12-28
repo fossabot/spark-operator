@@ -5,11 +5,11 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.log4j.Logger;
-
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClientException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tech.stackable.spark.operator.cluster.SparkCluster;
 import tech.stackable.spark.operator.cluster.SparkClusterController;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatus;
@@ -22,7 +22,7 @@ import tech.stackable.spark.operator.common.state.SparkSystemdCommandState;
 
 public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster, ClusterEvent> {
 
-  private static final Logger LOGGER = Logger.getLogger(SparkClusterStateMachine.class.getName());
+  private static final Logger LOGGER = LoggerFactory.getLogger(SparkClusterStateMachine.class);
 
   private ClusterState state;
   private final SparkClusterController controller;
@@ -66,11 +66,15 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
     // delete excess master pods
     // TODO: leader?
     if (SparkClusterController.getPodSpecToClusterDifference(master, masterPods) < 0) {
-      controller.deletePods(masterPods, crd, master);
+      List<Pod> deletedPods = controller.deletePods(masterPods, crd, master);
+      LOGGER.debug("[{}] - deleted {} {} pod(s): {}",
+        state.name(), deletedPods.size(), master.getPodTypeName(), SparkClusterController.metadataListToDebug(deletedPods));
     }
     // delete excess worker pods
     if (SparkClusterController.getPodSpecToClusterDifference(worker, workerPods) < 0) {
-      controller.deletePods(workerPods, crd, worker);
+      List<Pod> deletedPods = controller.deletePods(workerPods, crd, worker);
+      LOGGER.debug("[{}] - deleted {} {} pod(s): {}",
+        state.name(), deletedPods.size(), worker.getPodTypeName(), SparkClusterController.metadataListToDebug(deletedPods));
     }
 
     // run for initial state
@@ -128,11 +132,11 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
     }
     // else log
     else {
-      LOGGER.debug(String.format("[%s] - %s [%d / %d] | %s [%d / %d]",
+      LOGGER.debug("[{}] - {} [{} / {}] | {} [{} / {}]",
         state.name(),
         master.getPodTypeName(), masterPods.size(), master.getInstances(),
         worker.getPodTypeName(), workerPods.size(), worker.getInstances()
-      ));
+      );
     }
     return event;
   }
@@ -163,8 +167,8 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
           // remove old config maps
           List<ConfigMap> deletedConfigMaps = controller.deleteAllClusterConfigMaps(crd);
 
-          LOGGER.debug(String.format("[%s] - deleted %d configMap(s): %s",
-            state.name(), deletedConfigMaps.size(), SparkClusterController.metadataListToDebug(deletedConfigMaps)));
+          LOGGER.debug("[{}] - deleted {} configMap(s): {}",
+            state.name(), deletedConfigMaps.size(), SparkClusterController.metadataListToDebug(deletedConfigMaps));
           break;
         case CREATE_MASTER: {
           SparkNode master = crd.getSpec().getMaster();
@@ -174,8 +178,8 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
           // create master instances if required
           masterPods = controller.createPods(masterPods, crd, master);
 
-          LOGGER.debug(String.format("[%s] - created %d %s pod(s): %s",
-            state.name(), masterPods.size(), master.getPodTypeName(), SparkClusterController.metadataListToDebug(masterPods)));
+          LOGGER.debug("[{}] - created {} {} pod(s): {}",
+            state.name(), masterPods.size(), master.getPodTypeName(), SparkClusterController.metadataListToDebug(masterPods));
           break;
         }
         case WAIT_MASTER_HOST_NAME: {
@@ -184,11 +188,11 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
           List<String> masterHostNames = SparkClusterController.getHostNames(masterPods);
           if (masterHostNames.size() != 0) {
             // TODO: actual master?
-            LOGGER.debug(String.format("[%s] - got host name: %s", state.name(), masterHostNames.get(0)));
+            LOGGER.debug("[{}] - got host name: {}", state.name(), masterHostNames.get(0));
             // create master config map when nodename received
             List<ConfigMap> createdConfigMaps = controller.createConfigMaps(masterPods, crd, master);
-            LOGGER.debug(String.format("[%s] - created %d configMap(s): %s",
-              state.name(), createdConfigMaps.size(), SparkClusterController.metadataListToDebug(createdConfigMaps)));
+            LOGGER.debug("[{}] - created {} configMap(s): {}",
+              state.name(), createdConfigMaps.size(), SparkClusterController.metadataListToDebug(createdConfigMaps));
           }
           break;
         }
@@ -204,18 +208,18 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
           List<String> masterNodeNames = SparkClusterController.getHostNames(masterPods);
 
           if (masterNodeNames.isEmpty()) {
-            LOGGER.warn(String.format("[%s] - no master node names available!",state.name()));
+            LOGGER.warn("[{}] - no master node names available!", state.name());
             break;
           }
           // adapt command in workers
           String masterUrl = SparkClusterController.adaptWorkerCommand(crd, masterNodeNames);
-          LOGGER.debug(String.format("[%s] - set worker MASTER_URL to: %s", state.name(), masterUrl));
+          LOGGER.debug("[{}] - set worker MASTER_URL to: {}", state.name(), masterUrl);
 
           // spin up workers
           workerPods = controller.createPods(workerPods, crd, worker);
 
-          LOGGER.debug(String.format("[%s] - created %d %s pod(s): %s",
-            state.name(), workerPods.size(), worker.getPodTypeName(), SparkClusterController.metadataListToDebug(workerPods)));
+          LOGGER.debug("[{}] - created {} {} pod(s): {}",
+            state.name(), workerPods.size(), worker.getPodTypeName(), SparkClusterController.metadataListToDebug(workerPods));
           break;
         }
         case WAIT_WORKER_HOST_NAME:
@@ -224,12 +228,12 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
           List<String> workerHostNames = SparkClusterController.getHostNames(workerPods);
           if (workerHostNames.size() != 0) {
             // TODO: actual master?
-            LOGGER.debug(String.format("[%s] - got host name: %s", state.name(), workerHostNames.get(0)));
+            LOGGER.debug("[{}] - got host name: {}", state.name(), workerHostNames.get(0));
             // create master config map when nodename received
             List<ConfigMap> createdConfigMaps = controller.createConfigMaps(workerPods, crd, worker);
 
-            LOGGER.debug(String.format("[%s] - created %d configMap(s): %s",
-              state.name(), createdConfigMaps.size(), SparkClusterController.metadataListToDebug(createdConfigMaps)));
+            LOGGER.debug("[{}] - created {} configMap(s): {}",
+              state.name(), createdConfigMaps.size(), SparkClusterController.metadataListToDebug(createdConfigMaps));
           }
           break;
         case WAIT_WORKER_RUNNING:
@@ -238,7 +242,7 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
           break;
       }
     } catch (KubernetesClientException ex) {
-      LOGGER.warn("Received outdated object: " + ex.getMessage());
+      LOGGER.warn("Received outdated object: {}", ex.getMessage());
     }
   }
 

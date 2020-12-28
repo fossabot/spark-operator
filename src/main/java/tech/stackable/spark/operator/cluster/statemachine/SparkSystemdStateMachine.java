@@ -5,9 +5,9 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.log4j.Logger;
-
 import io.fabric8.kubernetes.api.model.Pod;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tech.stackable.spark.operator.cluster.SparkCluster;
 import tech.stackable.spark.operator.cluster.SparkClusterController;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusCommand;
@@ -18,7 +18,7 @@ import tech.stackable.spark.operator.common.state.SparkSystemdCommandState;
 
 public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster, SystemdEvent> {
 
-  private static final Logger LOGGER = Logger.getLogger(SparkSystemdStateMachine.class.getName());
+  private static final Logger LOGGER = LoggerFactory.getLogger(SparkSystemdStateMachine.class);
 
   private SystemdState state;
   private final SparkClusterController controller;
@@ -92,7 +92,7 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
     }
     // else log
     else {
-      LOGGER.debug(String.format("[%s] - systemd event: %s", state.name(), event.name()));
+      LOGGER.debug("[{}] - systemd event: {}", state.name(), event.name());
     }
 
     return event;
@@ -126,8 +126,8 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
           crd.getStatus().getSystemd().getRunningCommand().setStatus(SparkSystemdCommandState.FAILED.name());
           crd.getStatus().getSystemd().getRunningCommand().setReason("No updated image available!");
           controller.getCrdClient().updateStatus(crd);
-          LOGGER.warn(String.format("[%s] - no updated image available: command %s",
-            state, SparkSystemdCommandState.FAILED.name()));
+          LOGGER.warn("[{}] - no updated image available: command {}",
+            state, SparkSystemdCommandState.FAILED.name());
         }
         break;
       case SYSTEMD_JOBS_FINISHED:
@@ -139,8 +139,8 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
           // delete all pods
           List<Pod> deletedPods = controller.deletePods(crd, crd.getSpec().getMaster(), crd.getSpec().getWorker());
 
-          LOGGER.debug(String.format("[%s] - deleted %d pod(s): %s",
-            state, deletedPods.size(), SparkClusterController.metadataListToDebug(deletedPods)));
+          LOGGER.debug("[{}] - deleted {} pod(s): {}",
+            state, deletedPods.size(), SparkClusterController.metadataListToDebug(deletedPods));
         }
         break;
       case SYSTEMD_PODS_DELETED:
@@ -221,7 +221,7 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
       if (events.contains(event)) {
         newState = TRANSITIONS.getOrDefault(event, current);
       }
-      LOGGER.trace(String.format("[%s ==> %s]", current.name(), newState.name()));
+      LOGGER.trace("[{} ==> {}]", current.name(), newState.name());
       return newState;
     }
 

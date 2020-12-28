@@ -8,8 +8,6 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.log4j.Logger;
-
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.Pod;
@@ -18,6 +16,8 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import org.apache.spark.launcher.SparkAppHandle;
 import org.apache.spark.launcher.SparkAppHandle.State;
 import org.apache.spark.launcher.SparkLauncher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tech.stackable.spark.operator.abstractcontroller.AbstractCrdController;
 import tech.stackable.spark.operator.application.crd.SparkApplicationSpec;
 import tech.stackable.spark.operator.cluster.crd.SparkNodeMaster;
@@ -27,7 +27,7 @@ import tech.stackable.spark.operator.common.type.SparkConfig;
 
 public class SparkApplicationController extends AbstractCrdController<SparkApplication, SparkApplicationList, SparkApplicationDoneable> {
 
-  private static final Logger LOGGER = Logger.getLogger(SparkApplicationController.class.getName());
+  private static final Logger LOGGER = LoggerFactory.getLogger(SparkApplicationController.class);
 
   private static final int TIMEOUT = 120;
   private final Set<SparkApplication> workingQueue = new HashSet<>();
@@ -44,14 +44,14 @@ public class SparkApplicationController extends AbstractCrdController<SparkAppli
 
   @Override
   public void process(SparkApplication crd) {
-    LOGGER.trace("Got CRD: " + crd.getMetadata().getName());
+    LOGGER.trace("Got CRD: {}", crd.getMetadata().getName());
     launch(crd);
   }
 
   /**
    * Launch the given application, transform config parameters, set executor and driver options etc.
    *
-   * @param app        - spark application configured via yaml/json
+   * @param app - spark application configured via yaml/json
    *
    */
   private void launch(SparkApplication app) {
@@ -67,7 +67,7 @@ public class SparkApplicationController extends AbstractCrdController<SparkAppli
       SparkApplicationListener sparkAppListener = new SparkApplicationListener(countDownLatch);
 
       URL sparkHome = ClassLoader.getSystemResource("spark-3.0.1-bin-hadoop2.7");
-      LOGGER.debug("Start app: " + app.getMetadata().getName() + " - SPARK_HOME: " + sparkHome.getPath());
+      LOGGER.debug("Start app: {} - SPARK_HOME: {}", app.getMetadata().getName(), sparkHome.getPath());
 
       SparkLauncher launcher = new SparkLauncher();
       launcher.setSparkHome(sparkHome.getPath());
@@ -134,7 +134,7 @@ public class SparkApplicationController extends AbstractCrdController<SparkAppli
     PodList podList = getClient().pods().inNamespace(getNamespace()).list();
 
     if (podList == null) {
-      LOGGER.warn("no pods found in namespace " + getNamespace());
+      LOGGER.warn("no pods found in namespace {}", getNamespace());
       return null;
     }
 
@@ -195,12 +195,12 @@ public class SparkApplicationController extends AbstractCrdController<SparkAppli
       String sparkAppId = handle.getAppId();
       State appState = handle.getState();
       if (sparkAppId != null) {
-        LOGGER.info("spark job[" + sparkAppId + "] state changed to: " + appState);
+        LOGGER.info("spark job[{}] state changed to: {}", sparkAppId, appState);
       } else {
-        LOGGER.info("spark job state changed to: " + appState);
+        LOGGER.info("spark job state changed to: {}", appState);
       }
       if (appState != null && appState.isFinal()) {
-        LOGGER.info("spark job[" + sparkAppId + "] state changed to: " + appState);
+        LOGGER.info("spark job[{}] state changed to: {}", sparkAppId, appState);
         countDownLatch.countDown();
       }
     }

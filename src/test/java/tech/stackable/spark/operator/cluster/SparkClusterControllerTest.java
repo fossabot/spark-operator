@@ -1,5 +1,6 @@
 package tech.stackable.spark.operator.cluster;
 
+import static common.Util.setNodeNames;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -8,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
+import common.Util;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,8 +25,6 @@ import io.fabric8.kubernetes.client.server.mock.KubernetesServer;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatus;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusCommand;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusSystemd;
-import tech.stackable.spark.operator.cluster.crd.SparkNode;
-import tech.stackable.spark.operator.common.type.SparkOperatorConfig;
 
 @TestInstance(Lifecycle.PER_CLASS)
 class SparkClusterControllerTest {
@@ -34,11 +34,6 @@ class SparkClusterControllerTest {
 
   private SparkClusterController controller;
 
-  private static final String CRD_PATH = "cluster/spark-cluster-crd.yaml";
-  private static final String CRD_EXAMPLE_PATH = "cluster/spark-cluster-example.yaml";
-
-  private static final long RESYNC_CYCLE = 5 * 1000L;
-
   private static final String SPARK_CLUSTER_KIND = "SparkCluster";
 
   @BeforeEach
@@ -46,7 +41,7 @@ class SparkClusterControllerTest {
     server = new KubernetesServer(true, true);
     server.before();
     client = server.getClient();
-    controller = new SparkClusterController(client, CRD_PATH, RESYNC_CYCLE);
+    controller = new SparkClusterController(client, Util.CLUSTER_CRD_PATH, Util.RESYNC_CYCLE);
     controller.init();
   }
 
@@ -58,7 +53,7 @@ class SparkClusterControllerTest {
 
   @Test
   public void testLoadYaml() {
-    List<HasMetadata> crdList = controller.loadYaml(CRD_PATH);
+    List<HasMetadata> crdList = controller.loadYaml(Util.CLUSTER_CRD_PATH);
     assertNotNull(crdList);
     assertEquals(1, crdList.size());
 
@@ -68,12 +63,11 @@ class SparkClusterControllerTest {
 
   @Test
   public void testCrdClientCrud() {
-    // load spark-cluster-example.yaml
-    SparkCluster cluster = loadClusterExample();
+    SparkCluster cluster = Util.loadSparkClusterExample(client, controller, Util.CLUSTER_EXAMPLE_PATH);
     assertNotNull(cluster);
     assertEquals(SPARK_CLUSTER_KIND, cluster.getKind());
 
-    // list all sparkclusters -> only one loaded
+    // list all spark clusters -> only one loaded
     List<SparkCluster> clusters = controller.getCrdClient().list().getItems();
     assertNotNull(clusters);
     assertEquals(1, clusters.size());
@@ -114,7 +108,7 @@ class SparkClusterControllerTest {
   @Test
   public void testPodCrud() {
     // load spark-cluster-example.yaml
-    SparkCluster cluster = loadClusterExample();
+    SparkCluster cluster = Util.loadSparkClusterExample(client, controller, Util.CLUSTER_EXAMPLE_PATH);
     assertNotNull(cluster);
     assertEquals(SPARK_CLUSTER_KIND, cluster.getKind());
     // get node instances
@@ -144,7 +138,7 @@ class SparkClusterControllerTest {
 
   @Test
   public void testConfigMapsCrud() {
-    SparkCluster cluster = loadClusterExample();
+    SparkCluster cluster = Util.loadSparkClusterExample(client, controller, Util.CLUSTER_EXAMPLE_PATH);
     assertNotNull(cluster);
     assertEquals(SPARK_CLUSTER_KIND, cluster.getKind());
     // get node instances
@@ -198,29 +192,6 @@ class SparkClusterControllerTest {
     retrievedWorkerConfigMaps = controller.getConfigMaps(createdMasterPods, cluster);
     assertNotNull(retrievedWorkerConfigMaps);
     assertEquals(0, retrievedWorkerConfigMaps.size());
-  }
-
-  private SparkCluster loadClusterExample() {
-    // load spark-cluster-example.yaml
-    SparkCluster cluster =
-      controller.getCrdClient()
-        .load(Thread.currentThread()
-        .getContextClassLoader()
-        .getResourceAsStream(CRD_EXAMPLE_PATH))
-        .create();
-    cluster.getMetadata().setUid("123456789");
-    cluster.getMetadata().setNamespace(client.getNamespace());
-
-    return cluster;
-  }
-
-  private static void setNodeNames(List<Pod> pods, SparkNode node) {
-    if (node.getSelectors() != null && node.getSelectors().size() > 0) {
-      String nodeName = node.getSelectors().get(0).getMatchLabels().get(SparkOperatorConfig.KUBERNETES_IO_HOSTNAME.toString());
-      for (Pod pod : pods) {
-        pod.getSpec().setNodeName(nodeName);
-      }
-    }
   }
 
 }

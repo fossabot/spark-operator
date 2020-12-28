@@ -7,7 +7,8 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tech.stackable.spark.operator.abstractcontroller.AbstractCrdController;
 import tech.stackable.spark.operator.cluster.SparkCluster;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatus;
@@ -23,13 +24,13 @@ import tech.stackable.spark.operator.common.fabric8.SparkSystemdList;
  */
 public class SparkSystemdController extends AbstractCrdController<SparkSystemd, SparkSystemdList, SparkSystemdDoneable> {
 
-  private static final Logger LOGGER = Logger.getLogger(SparkSystemdController.class.getName());
+  private static final Logger LOGGER = LoggerFactory.getLogger(SparkSystemdController.class);
 
-  private final String controllerCrdPath;
+  private final String clusterCrdPath;
 
-  public SparkSystemdController(KubernetesClient client, String crdPath, String controllerCrdPath, Long resyncCycle) {
+  public SparkSystemdController(KubernetesClient client, String crdPath, String clusterCrdPath, Long resyncCycle) {
     super(client, crdPath, resyncCycle);
-    this.controllerCrdPath = controllerCrdPath;
+    this.clusterCrdPath = clusterCrdPath;
   }
 
   @Override
@@ -40,9 +41,9 @@ public class SparkSystemdController extends AbstractCrdController<SparkSystemd, 
 
   @Override
   public void process(SparkSystemd crd) {
-    LOGGER.trace("Got CRD: " + crd.getMetadata().getName());
+    LOGGER.trace("Got CRD: {}", crd.getMetadata().getName());
     // get custom crd client
-    List<HasMetadata> metadata = loadYaml(controllerCrdPath);
+    List<HasMetadata> metadata = loadYaml(clusterCrdPath);
 
     MixedOperation<SparkCluster, SparkClusterList, SparkClusterDoneable, Resource<SparkCluster, SparkClusterDoneable>> clusterCrdClient =
       getClient().customResources(getCrdContext(metadata), SparkCluster.class, SparkClusterList.class, SparkClusterDoneable.class);
@@ -76,11 +77,11 @@ public class SparkSystemdController extends AbstractCrdController<SparkSystemd, 
       // update status
       clusterCrdClient.updateStatus(cluster);
     } catch (KubernetesClientException ex) {
-      LOGGER.warn("Received outdated object: " + ex.getMessage());
+      LOGGER.warn("Received outdated object: {}", ex.getMessage());
     }
     // remove systemd crd?
     if (getCrdClient().inNamespace(getNamespace()).withName(crd.getMetadata().getName()).delete()) {
-      LOGGER.trace("deleted systemd crd: " + crd.getMetadata().getName() + " with action: " + crd.getSpec().getSystemdAction());
+      LOGGER.trace("deleted systemd crd: {} with action: {}", crd.getMetadata().getName(), crd.getSpec().getSystemdAction());
     }
   }
 

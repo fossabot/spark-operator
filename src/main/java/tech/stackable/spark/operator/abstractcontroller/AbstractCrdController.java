@@ -3,13 +3,10 @@ package tech.stackable.spark.operator.abstractcontroller;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.ParameterizedType;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-
-import org.apache.log4j.Logger;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.apiextensions.v1.CustomResourceDefinition;
@@ -26,10 +23,12 @@ import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
 import io.fabric8.kubernetes.client.informers.SharedInformerFactory;
 import io.fabric8.kubernetes.client.informers.cache.Cache;
 import io.fabric8.kubernetes.client.informers.cache.Lister;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Abstract CRD Controller to work with custom CRDs. Applies given CRD and orders events (add, update, delete)
- * in an blocking queue. crdClass extending CustomResource and crdClassList extending CustomResourceList required!
+ * in an blocking queue.
  *
  * @param <Crd>         - pojo extending CustomResource
  * @param <CrdList>     - pojo extending CustomResourceList
@@ -41,7 +40,7 @@ public abstract class AbstractCrdController<
   CrdDoneable extends CustomResourceDoneable<Crd>>
   implements Runnable {
 
-  private static final Logger LOGGER = Logger.getLogger(AbstractCrdController.class.getName());
+  private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCrdController.class);
 
   private static final Integer WORKING_QUEUE_SIZE = 1024;
 
@@ -135,11 +134,11 @@ public abstract class AbstractCrdController<
 
     // check spec
     if (crd.getSpec().getVersions().isEmpty()) {
-      LOGGER.warn("No versions available - return null");
+      LOGGER.error("No versions available - return null");
       return null;
     }
     if (crd.getSpec().getVersions().size() > 1) {
-      LOGGER.warn("multiple versions available ... using first one");
+      LOGGER.error("multiple versions available - using first one");
     }
 
     builder.withVersion(crd.getSpec().getVersions().get(0).getName());
@@ -154,7 +153,7 @@ public abstract class AbstractCrdController<
   /**
    * Overwrite method to specify what should be done after the blocking queue has elements
    *
-   * @param crd        - specified crd resource class for that controller
+   * @param crd - specified crd resource class for that controller
    */
   protected abstract void process(Crd crd);
 
@@ -203,7 +202,7 @@ public abstract class AbstractCrdController<
     // init controller
     init();
     // add informers
-    informerFactory.addSharedInformerEventListener(exception -> LOGGER.fatal("Tip: missing/bad crds?\n" + exception));
+    informerFactory.addSharedInformerEventListener(exception -> LOGGER.error("Tip: missing/bad crds? {}", exception.getMessage()));
     // start informers
     informerFactory.startAllRegisteredInformers();
     // wait until informers have synchronized
@@ -248,19 +247,19 @@ public abstract class AbstractCrdController<
     crdSharedIndexInformer.addEventHandler(new ResourceEventHandler<>() {
       @Override
       public void onAdd(Crd crd) {
-        LOGGER.trace("onAdd: " + crd);
+        LOGGER.trace("onAdd: {}", crd);
         onCrdAdd(crd);
       }
 
       @Override
       public void onUpdate(Crd crdOld, Crd crdNew) {
-        LOGGER.trace("onUpdate:\ncrdOld: " + crdOld + "\ncrdNew: " + crdNew);
+        LOGGER.trace("onUpdate:\ncrdOld: {}\ncrdNew: {}", crdOld, crdNew);
         onCrdUpdate(crdOld, crdNew);
       }
 
       @Override
       public void onDelete(Crd crd, boolean deletedFinalStateUnknown) {
-        LOGGER.trace("onDelete: " + crd);
+        LOGGER.trace("onDelete: {}", crd);
         onCrdDelete(crd, deletedFinalStateUnknown);
       }
     });

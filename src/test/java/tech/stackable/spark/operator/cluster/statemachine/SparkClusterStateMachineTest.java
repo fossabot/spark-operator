@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 
+import common.Util;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,12 +31,6 @@ public class SparkClusterStateMachineTest {
   private KubernetesClient client;
 
   private SparkClusterController controller;
-  private Thread sparkClusterControllerThread;
-
-  private static final String CRD_PATH = "cluster/spark-cluster-crd.yaml";
-  private static final String CRD_EXAMPLE_PATH = "cluster/spark-cluster-example.yaml";
-
-  public static final long RESYNC_CYCLE = 500 * 1000L;
 
   @BeforeEach
   public void init() {
@@ -43,7 +38,7 @@ public class SparkClusterStateMachineTest {
     server.before();
 
     client = server.getClient();
-    controller = new SparkClusterController(client, CRD_PATH, RESYNC_CYCLE);
+    controller = new SparkClusterController(client, Util.CLUSTER_CRD_PATH, Util.RESYNC_CYCLE);
     controller.init();
   }
 
@@ -54,22 +49,13 @@ public class SparkClusterStateMachineTest {
   }
 
   @Test
-  public void testThreadedStateTransitions() {
-    //sparkClusterControllerThread = new Thread(controller);
-    //sparkClusterControllerThread.start();
-
-    //Thread.sleep(5000);
-    //sparkClusterControllerThread.interrupt();
-  }
-
-  @Test
   public void testNonThreadedStateTransitions() {
     // initial state
     assertEquals(ClusterState.READY, controller.getClusterStateMachine().getState());
     // load spark-cluster-example.yaml
     SparkCluster cluster =
       controller.getCrdClient()
-        .load(Thread.currentThread().getContextClassLoader().getResourceAsStream(CRD_EXAMPLE_PATH))
+        .load(Thread.currentThread().getContextClassLoader().getResourceAsStream(Util.CLUSTER_EXAMPLE_PATH))
         .create();
     cluster.getMetadata().setUid("123456789");
     cluster.getMetadata().setNamespace(client.getNamespace());
@@ -100,7 +86,7 @@ public class SparkClusterStateMachineTest {
     assertEquals(ClusterState.CREATE_MASTER, getState(controller));
 
     // set node name
-    setNodeName(createdMasterPods, cluster);
+    Util.setNodeName(client, createdMasterPods, cluster);
 
     // when nodenames set -> wait for master hostname
     controller.process(cluster);
@@ -114,7 +100,7 @@ public class SparkClusterStateMachineTest {
     assertEquals(ClusterState.WAIT_MASTER_RUNNING, getState(controller));
 
     // set pods for running ...
-    setStatusRunning(createdMasterPods);
+    Util.setStatusRunning(client, createdMasterPods);
     // master pods running -> state should be create worker
     controller.process(cluster);
     assertEquals(ClusterState.CREATE_WORKER, getState(controller));
@@ -125,7 +111,7 @@ public class SparkClusterStateMachineTest {
     controller.process(cluster);
     assertEquals(ClusterState.CREATE_WORKER, getState(controller));
     // set worker nodenames
-    setNodeName(createdWorkerPods, cluster);
+    Util.setNodeName(client, createdWorkerPods, cluster);
 
     // wait for worker host name
     controller.process(cluster);
@@ -135,7 +121,7 @@ public class SparkClusterStateMachineTest {
     controller.process(cluster);
     assertEquals(ClusterState.WAIT_WORKER_RUNNING, getState(controller));
     // set workers to running
-    setStatusRunning(createdWorkerPods);
+    Util.setStatusRunning(client, createdWorkerPods);
 
     // workers running -> READY
     controller.process(cluster);
@@ -145,28 +131,6 @@ public class SparkClusterStateMachineTest {
     controller.deletePods(cluster, cluster.getSpec().getWorker());
     controller.process(cluster);
     assertEquals(ClusterState.CREATE_WORKER, getState(controller));
-  }
-
-  private void setNodeName(List<Pod> pods, SparkCluster cluster) {
-    for (Pod pod : pods) {
-      pod.getSpec().setNodeName(cluster.getSpec().getMaster().getSelectors().get(0)
-        .getMatchLabels().get(SparkOperatorConfig.KUBERNETES_IO_HOSTNAME.toString()));
-      // update pods with nodename
-      client.pods().createOrReplace(pod);
-    }
-  }
-
-  private void setStatusRunning(List<Pod> pods) {
-    for (Pod pod : pods) {
-      PodStatus status = pod.getStatus();
-      if (status == null) {
-        status = new PodStatus();
-        status.setPhase(PodState.RUNNING.toString());
-        pod.setStatus(status);
-      }
-      // update pods with status running
-      client.pods().updateStatus(pod);
-    }
   }
 
   private static ClusterState getState(SparkClusterController controller) {
