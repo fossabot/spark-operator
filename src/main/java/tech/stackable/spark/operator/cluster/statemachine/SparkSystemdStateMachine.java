@@ -162,25 +162,27 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
 
   /**
    * Systemd State Machine:
-   * |
-   * v
-   * +<-------SYSTEMD_READY <----------------+
-   * |				| start command			|
-   * | jobs finished	v						|
-   * |	+<--SYSTEMD_START_COMMAND <---------+
-   * |	|			| not updated			^
-   * |	|			v 						|
-   * |	|	SYSTEMD_IMAGE_NOT_UPDATED ----->+ ready, start command
-   * jobs		v	v 					 				^
-   * finished +-->+-> SYSTEMD_JOBS_FINISHED			|
-   * |				| pods deleted			|
-   * pods		v				v			ready		|
-   * deleted	+----->	SYSTEMD_PODS_DELETED ---------->+
-   * |				 						^
-   * v							ready		|
-   * stop	+-----> SYSTEMD_STOPPED --------------->+
+   *                        |
+   *                        v
+   * +<---------------- SYSTEMD_READY <-----------------+
+   * | image not              | start command			      |
+   * | updated                v						        ready |
+   * |	          +<--- SYSTEMD_START_COMMAND <---------+
+   * |            |           |	not updated			        ^
+   * v            v           v	          start command	|
+   * +----------->+---> SYSTEMD_IMAGE_NOT_UPDATED ----->+
+   * | jobs       | jobs                                ^
+   * v finished		v finished 	           					 			|
+   * +----------->+---> SYSTEMD_JOBS_FINISHED			      |
+   * | pods				| pods      | pods deleted			      |
+   * v deleted		v deleted   v				       			ready	|
+   * +----------->+---> SYSTEMD_PODS_DELETED ---------->+
+   * |				 				        ^                         ^
+   * v stop				    	  	  |                   ready |
+   * +----------------> SYSTEMD_STOPPED --------------->+
    */
   public enum SystemdState {
+    // states with their accepted transitions
     SYSTEMD_READY(
       SystemdEvent.START_COMMAND,
       SystemdEvent.STOP_COMMAND,
@@ -188,7 +190,6 @@ public class SparkSystemdStateMachine implements SparkStateMachine<SparkCluster,
       SystemdEvent.PODS_DELETED,
       SystemdEvent.IMAGE_NOT_UPDATED
     ),
-    // states with their accepted transitions
     SYSTEMD_START_COMMAND(
       SystemdEvent.JOBS_FINISHED,
       SystemdEvent.PODS_DELETED,

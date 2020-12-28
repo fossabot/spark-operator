@@ -48,6 +48,7 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
    * @param crd    - current spark cluster
    *
    * @return ClusterEvent:
+   * INITIAL if no status found or command running which is not stop
    * CREATE_MASTER if #masters < spec;
    * WAIT_HOST_NAME if masters created but not running
    * WAIT_MASTER_RUNNING if host names received and config map written
@@ -74,15 +75,17 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
 
     // run for initial state
     // status not null or
-    // running command not null or status finished and command not Stop
     ClusterEvent event = ClusterEvent.READY;
-    if (crd.getStatus() == null
-        || (crd.getStatus().getSystemd() != null
-        && crd.getStatus().getSystemd().getRunningCommand() != null
-        && crd.getStatus().getSystemd().getRunningCommand().getStatus().equals(SparkSystemdCommandState.FINISHED.toString())
-        && SparkSystemdCommand.getSystemdCommand(crd.getStatus().getSystemd().getRunningCommand().getCommand())
-        != SparkSystemdCommand.STOP)) {
-        event = ClusterEvent.INITIAL;
+    if (crd.getStatus() == null) {
+      event = ClusterEvent.INITIAL;
+    }
+    // running command not null and status finished and command not stop
+    else if (crd.getStatus().getSystemd() != null
+            && crd.getStatus().getSystemd().getRunningCommand() != null
+            && crd.getStatus().getSystemd().getRunningCommand().getStatus().equals(SparkSystemdCommandState.FINISHED.toString())
+            && SparkSystemdCommand.getSystemdCommand(crd.getStatus().getSystemd().getRunningCommand().getCommand())
+            != SparkSystemdCommand.STOP) {
+      event = ClusterEvent.INITIAL;
     }
     // masters missing
     else if (SparkClusterController.getPodSpecToClusterDifference(master, masterPods) > 0) {
@@ -241,36 +244,36 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
 
   /**
    * Cluster state machine:
-   * |
-   * v
-   * +<--+<----- CLUSTER_INITIAL
-   * |	|create		| create master
-   * |	|worker		v
-   * |	|		CREATE_MASTER <-----------------+
-   * |	|	  		| wait host name			^
-   * |	|			|							|
-   * |	|			v			create master	|
-   * |	|		WAIT_MASTER_HOST_NAME --------->+
-   * |	|			| master running			^
-   * |	|			|							|
-   * |	|			v			create master	|
-   * |	|		WAIT_MASTER_RUNNING ----------->+
-   * |	|			| create worker				|
-   * |	|			v							|
-   * |	+----->	CREATE_WORKER ----------------->+
-   * |	^			| wait worker host	name	^
-   * |	|create		|							|
-   * |	|worker		v			create master	|
-   * |	+<-----	WAIT_WORKER_HOST_NAME --------->+
-   * |	|			| worker running			|
-   * |	|create		|							|
-   * |	|worker		v			create master	|
-   * |	+<-----	WAIT_WORKER_RUNNING ----------->+
-   * |	|create		| ready						|
-   * |	|worker		v			create master	|
-   * |	+------	CLUSTER_READY ----------------->+
-   * |				^
-   * +---------------+
+   *                  |
+   * ready            v
+   * +<--+<-----  CLUSTER_INITIAL
+   * |	| 		        | create master
+   * |	|       		  v
+   * |	|		      CREATE_MASTER <-----------------+
+   * |	| create      | wait host name		        ^
+   * |	|	worker      |							              |
+   * |	|			        v			        create master	|
+   * |	|		      WAIT_MASTER_HOST_NAME --------->+
+   * |	|			        | master running			      ^
+   * |	|			        |							              |
+   * |	|			        v			        create master	|
+   * |	|		      WAIT_MASTER_RUNNING ----------->+
+   * |	|			        | create worker				      |
+   * |	|			        v							              |
+   * |	+-------> CREATE_WORKER ----------------->+
+   * |	^			        | wait worker host name	    ^
+   * |	| create	    |							              |
+   * |	| worker	    v			        create master	|
+   * |	+<------- WAIT_WORKER_HOST_NAME --------->+
+   * |	|			        | worker running			      |
+   * |	| create	    |							              |
+   * |	| worker	    v			        create master |
+   * |	+<------- WAIT_WORKER_RUNNING ----------->+
+   * |	| create	    | ready						          |
+   * |	| worker	    v			        create master	|
+   * |	+-------- CLUSTER_READY ----------------->+
+   * |				        ^
+   * +----------------+
    */
   public enum ClusterState {
     // states with their accepted transitions
