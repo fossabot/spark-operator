@@ -84,7 +84,7 @@ public abstract class AbstractCrdController<
    * load crd context, init informers and crdClient, write crd and register event handlers
    */
   @SuppressWarnings("unchecked")
-  private void init() {
+  public void init() {
     crdMetadata = loadYaml(crdPath);
 
     informerFactory = client.informers();
@@ -159,11 +159,6 @@ public abstract class AbstractCrdController<
   protected abstract void process(Crd crd);
 
   /**
-   * Abstract method to overwrite if more than the crd should be registered
-   */
-  protected abstract void registerOtherInformers();
-
-  /**
    * Overwrite method to add more informers to be synced (e.g. pods)
    */
   protected void waitForAllInformersSynced() {
@@ -207,8 +202,6 @@ public abstract class AbstractCrdController<
   public void run() {
     // init controller
     init();
-    // add other informers
-    registerOtherInformers();
     // add informers
     informerFactory.addSharedInformerEventListener(exception -> LOGGER.fatal("Tip: missing/bad crds?\n" + exception));
     // start informers

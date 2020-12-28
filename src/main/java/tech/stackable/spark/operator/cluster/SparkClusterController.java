@@ -64,7 +64,9 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   }
 
   @Override
-  protected void registerOtherInformers() {
+  public void init() {
+    super.init();
+
     podInformer = getInformerFactory().sharedIndexInformerFor(Pod.class, PodList.class, getResyncCycle());
     podLister = new Lister<>(podInformer.getIndexer(), getNamespace());
     // register pod event handler
@@ -243,8 +245,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
       // for each pod check if matchlabels is a fit and
       for (Pod pod : pods) {
         // if hostnames match && instances left from spec && pod no selector yet
-        if (pod.getSpec().getNodeName().equals(
-          selector.getMatchLabels().get(SparkOperatorConfig.KUBERNETES_IO_HOSTNAME.toString()))
+        if (pod.getSpec().getNodeName().equals(selector.getMatchLabels().get(SparkOperatorConfig.KUBERNETES_IO_HOSTNAME.toString()))
           && instances > 0
           && matchPodOnSelector.get(pod) == null) {
           // add to map

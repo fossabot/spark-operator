@@ -44,6 +44,7 @@ public class SparkClusterStateMachineTest {
 
     client = server.getClient();
     controller = new SparkClusterController(client, CRD_PATH, RESYNC_CYCLE);
+    controller.init();
   }
 
   @AfterEach

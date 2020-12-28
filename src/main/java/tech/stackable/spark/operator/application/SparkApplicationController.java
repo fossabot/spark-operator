@@ -37,9 +37,6 @@ public class SparkApplicationController extends AbstractCrdController<SparkAppli
   }
 
   @Override
-  protected void registerOtherInformers() {}
-
-  @Override
   protected void waitForAllInformersSynced() {
     while (!getCrdSharedIndexInformer().hasSynced()) {}
     LOGGER.info("SparkApplication informer initialized ... waiting for changes");

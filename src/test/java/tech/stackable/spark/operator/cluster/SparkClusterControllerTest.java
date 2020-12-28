@@ -47,6 +47,7 @@ class SparkClusterControllerTest {
     server.before();
     client = server.getClient();
     controller = new SparkClusterController(client, CRD_PATH, RESYNC_CYCLE);
+    controller.init();
   }
 
   @AfterEach
@@ -203,7 +204,9 @@ class SparkClusterControllerTest {
     // load spark-cluster-example.yaml
     SparkCluster cluster =
       controller.getCrdClient()
-        .load(Thread.currentThread().getContextClassLoader().getResourceAsStream(CRD_EXAMPLE_PATH))
+        .load(Thread.currentThread()
+        .getContextClassLoader()
+        .getResourceAsStream(CRD_EXAMPLE_PATH))
         .create();
     cluster.getMetadata().setUid("123456789");
     cluster.getMetadata().setNamespace(client.getNamespace());

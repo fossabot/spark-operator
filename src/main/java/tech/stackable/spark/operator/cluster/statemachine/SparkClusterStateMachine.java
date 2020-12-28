@@ -74,16 +74,15 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
 
     // run for initial state
     // status not null or
-    // running command not null, status finished and command not Stop
+    // running command not null or status finished and command not Stop
     ClusterEvent event = ClusterEvent.READY;
-    if (crd.getStatus() != null) {
-      if (crd.getStatus().getSystemd() != null
-          && crd.getStatus().getSystemd().getRunningCommand() != null
-          && crd.getStatus().getSystemd().getRunningCommand().getStatus().equals(SparkSystemdCommandState.FINISHED.toString())
-          && SparkSystemdCommand.getSystemdCommand(crd.getStatus().getSystemd().getRunningCommand().getCommand())
-          != SparkSystemdCommand.STOP) {
+    if (crd.getStatus() == null
+        || (crd.getStatus().getSystemd() != null
+        && crd.getStatus().getSystemd().getRunningCommand() != null
+        && crd.getStatus().getSystemd().getRunningCommand().getStatus().equals(SparkSystemdCommandState.FINISHED.toString())
+        && SparkSystemdCommand.getSystemdCommand(crd.getStatus().getSystemd().getRunningCommand().getCommand())
+        != SparkSystemdCommand.STOP)) {
         event = ClusterEvent.INITIAL;
-      }
     }
     // masters missing
     else if (SparkClusterController.getPodSpecToClusterDifference(master, masterPods) > 0) {
