@@ -246,8 +246,8 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
       for (Pod pod : pods) {
         // if hostnames match && instances left from spec && pod no selector yet
         if (pod.getSpec().getNodeName().equals(selector.getMatchLabels().get(SparkOperatorConfig.KUBERNETES_IO_HOSTNAME.toString()))
-          && instances > 0
-          && matchPodOnSelector.get(pod) == null) {
+            && instances > 0
+            && matchPodOnSelector.get(pod) == null) {
           // add to map
           matchPodOnSelector.put(pod, selector);
           // reduce left over instances

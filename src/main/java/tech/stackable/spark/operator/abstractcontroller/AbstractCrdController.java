@@ -10,6 +10,7 @@ import java.util.concurrent.BlockingQueue;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.apiextensions.v1.CustomResourceDefinition;
+import io.fabric8.kubernetes.api.model.apiextensions.v1.CustomResourceDefinitionVersion;
 import io.fabric8.kubernetes.client.CustomResource;
 import io.fabric8.kubernetes.client.CustomResourceDoneable;
 import io.fabric8.kubernetes.client.CustomResourceList;
@@ -122,7 +123,7 @@ public abstract class AbstractCrdController<
     CustomResourceDefinitionContext.Builder builder = new CustomResourceDefinitionContext.Builder();
     // check metadata
     if (metadata.isEmpty()) {
-      LOGGER.warn("No metadata available - return null");
+      LOGGER.error("No crd metadata available!");
       return null;
     }
     if (metadata.size() > 1) {
@@ -136,17 +137,21 @@ public abstract class AbstractCrdController<
       LOGGER.error("No versions available - return null");
       return null;
     }
-    if (crd.getSpec().getVersions().size() > 1) {
-      LOGGER.error("multiple versions available - using first one");
+    // get served version
+    for(CustomResourceDefinitionVersion version : crd.getSpec().getVersions()) {
+      // served?
+      if(version.getServed()) {
+        builder.withVersion(crd.getSpec().getVersions().get(0).getName());
+        builder.withKind(crd.getSpec().getNames().getKind());
+        builder.withGroup(crd.getSpec().getGroup());
+        builder.withScope(crd.getSpec().getScope());
+        builder.withPlural(crd.getSpec().getNames().getPlural());
+
+        return builder.build();
+      }
     }
-
-    builder.withVersion(crd.getSpec().getVersions().get(0).getName());
-    builder.withKind(crd.getSpec().getNames().getKind());
-    builder.withGroup(crd.getSpec().getGroup());
-    builder.withScope(crd.getSpec().getScope());
-    builder.withPlural(crd.getSpec().getNames().getPlural());
-
-    return builder.build();
+    LOGGER.error("No served version found in crd: {}", crd);
+    return null;
   }
 
   /**
