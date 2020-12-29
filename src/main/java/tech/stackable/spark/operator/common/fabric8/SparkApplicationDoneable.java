@@ -6,7 +6,7 @@ import tech.stackable.spark.operator.application.SparkApplication;
 
 public class SparkApplicationDoneable extends CustomResourceDoneable<SparkApplication> {
 
-  public SparkApplicationDoneable(SparkApplication application, Function function) {
+  public SparkApplicationDoneable(SparkApplication application, Function<SparkApplication, SparkApplication> function) {
     super(application, function);
   }
 }

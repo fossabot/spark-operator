@@ -119,9 +119,9 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Create pods with regard to spec and current state
    *
-   * @param pods    - list of available pods belonging to the given node
-   * @param cluster - current spark cluster
-   * @param node    - master or worker node
+   * @param pods    list of available pods belonging to the given node
+   * @param cluster current spark cluster
+   * @param node    master or worker node
    *
    * @return list of created pods
    */
@@ -152,8 +152,8 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Create pod for spark node
    *
-   * @param cluster - spark cluster
-   * @param node    - master or worker node
+   * @param cluster spark cluster
+   * @param node    master or worker node
    *
    * @return pod create from specs
    */
@@ -200,10 +200,10 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Split existing pods according to spec in selectors and their hostnames
    *
-   * @param pods - list of existing pods
-   * @param node - spark node (master/worker)
+   * @param pods list of existing pods
+   * @param node spark node (master/worker)
    *
-   * @return HashMap<String, List < Pod> where the key is the hostname and value is a list of pods with that hostname
+   * @return HashMap where the key is the hostname and value is a list of pods with that hostname
    */
   private static Map<SparkNodeSelector, List<Pod>> splitPodsBySelector(List<Pod> pods, SparkNode node) {
     Map<SparkNodeSelector, List<Pod>> podsByHost = new HashMap<>();
@@ -232,8 +232,8 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * retrieve corresponding selector for pod
    *
-   * @param pods  - pod with node / hostname
-   * @param node - spark master / worker node
+   * @param pods pod with node / hostname
+   * @param node spark master / worker node
    *
    * @return selector corresponding to pod
    */
@@ -261,9 +261,9 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Delete pods with regard to spec and current state -> for reconcilation
    *
-   * @param pods    - list of available pods belonging to the given node
-   * @param cluster - current spark cluster
-   * @param node    - master or worker node
+   * @param pods    list of available pods belonging to the given node
+   * @param cluster current spark cluster
+   * @param node    master or worker node
    *
    * @return list of deleted pods
    */
@@ -308,7 +308,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Delete all node (master/worker) pods in cluster with no regard to spec -> systemd
    *
-   * @param cluster - cluster specification to retrieve all used pods
+   * @param cluster cluster specification to retrieve all used pods
    *
    * @return list of deleted pods
    */
@@ -337,8 +337,8 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Return number of pods for given nodes - Terminating is excluded
    *
-   * @param cluster - current spark cluster
-   * @param nodes   - master or worker node
+   * @param cluster current spark cluster
+   * @param nodes   master or worker node
    *
    * @return list of pods belonging to the given node
    */
@@ -375,9 +375,9 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Create pod name schema
    *
-   * @param cluster  - current spark cluster
-   * @param node     - master or worker node
-   * @param withUUID - if true append generated UUID, if false keep generated name (cluster.name + "-" + node.podtypename)
+   * @param cluster  current spark cluster
+   * @param node     master or worker node
+   * @param withUUID if true append generated UUID, if false keep generated name (cluster.name + "-" + node.podtypename)
    *
    * @return pod name
    */
@@ -392,7 +392,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Create config map name for pod
    *
-   * @param pod - pod with config map
+   * @param pod pod with config map
    *
    * @return config map name
    */
@@ -403,7 +403,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Check incoming pods for owner reference of SparkCluster and add to blocking queue
    *
-   * @param pod - kubernetes pod
+   * @param pod kubernetes pod
    */
   private void handlePodObject(Pod pod) {
     SparkCluster cluster = podInCluster(pod);
@@ -415,7 +415,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Return the owner reference of that specific pod if available
    *
-   * @param pod - fabric8 Pod
+   * @param pod fabric8 Pod
    *
    * @return pod owner reference
    */
@@ -432,7 +432,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Check if pod belongs to cluster
    *
-   * @param pod - pod to be checked for owner reference
+   * @param pod pod to be checked for owner reference
    *
    * @return SparkCluster the pod belongs to, otherwise null
    */
@@ -462,9 +462,9 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Create config map content for master / worker
    *
-   * @param pods    - pods to create config maps for
-   * @param cluster - spark cluster
-   * @param node    - spark master / worker
+   * @param pods    pods to create config maps for
+   * @param cluster spark cluster
+   * @param node    spark master / worker
    */
   public List<ConfigMap> createConfigMaps(List<Pod> pods, SparkCluster cluster, SparkNode node) {
     List<ConfigMap> createdConfigMaps = new ArrayList<>();
@@ -524,8 +524,8 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Get config map content for master / worker
    *
-   * @param pods    - spark master / worker pods
-   * @param cluster - spark cluster
+   * @param pods    spark master / worker pods
+   * @param cluster spark cluster
    *
    * @return list of configmaps for given pods
    */
@@ -551,8 +551,8 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Delete config map content for master / worker
    *
-   * @param cluster - spark cluster
-   * @param node    - spark master / worker
+   * @param cluster spark cluster
+   * @param node    spark master / worker
    */
   public void deleteConfigMaps(List<Pod> pods, SparkCluster cluster, SparkNode node) {
     for (Pod pod : pods) {
@@ -571,7 +571,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * delete all config maps associated with cluster
    *
-   * @param cluster - spark cluster
+   * @param cluster spark cluster
    *
    * @return list of deleted config maps
    */
@@ -599,9 +599,9 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Add spark environment variables to stringbuffer for spark-env.sh configuration
    *
-   * @param sb     - string buffer to add to
-   * @param config - key
-   * @param value  - value
+   * @param sb     string buffer to add to
+   * @param config key
+   * @param value  value
    */
   private static void addToSparkEnv(StringBuffer sb, SparkConfig config, String value) {
     if (value != null && !value.isEmpty()) {
@@ -612,8 +612,8 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Add to string buffer for spark configuration (spark-default.conf) in config map
    *
-   * @param sparkConfiguration - spark config given in specs
-   * @param sb                 - string buffer to add to
+   * @param sparkConfiguration spark config given in specs
+   * @param sb                 string buffer to add to
    */
   private static void addToSparkConfig(Set<EnvVar> sparkConfiguration, StringBuffer sb) {
     for (EnvVar envVar : sparkConfiguration) {
@@ -631,8 +631,8 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Check if all given pods have status "Running"
    *
-   * @param pods   - list of pods
-   * @param status - PodStatus to compare to
+   * @param pods   list of pods
+   * @param status PodStatus to compare to
    *
    * @return true if all pods have status from Podstatus
    */
@@ -664,7 +664,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Extract leader node name from pods
    *
-   * @param pods - list of master pods
+   * @param pods list of master pods
    *
    * @return null or pod.spec.nodeName if available
    */
@@ -683,8 +683,8 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Adapt worker starting command with master node names as argument
    *
-   * @param cluster         - spark cluster
-   * @param masterNodeNames - list of available master nodes
+   * @param cluster         spark cluster
+   * @param masterNodeNames list of available master nodes
    */
   public static String adaptWorkerCommand(SparkCluster cluster, List<String> masterNodeNames) {
     String masterUrl = null;
@@ -720,7 +720,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Helper method to print pod lists
    *
-   * @param hasMetadata - list of objects to print (implementing) HasMetadata
+   * @param hasMetadata list of objects to print (implementing) HasMetadata
    *
    * @return pod metadata.name
    */

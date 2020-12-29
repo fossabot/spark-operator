@@ -34,12 +34,6 @@ public class SparkSystemdController extends AbstractCrdController<SparkSystemd, 
   }
 
   @Override
-  protected void waitForAllInformersSynced() {
-    while (!getCrdSharedIndexInformer().hasSynced()) {}
-    LOGGER.info("SparkSystemd informer initialized ... waiting for changes");
-  }
-
-  @Override
   public void process(SparkSystemd crd) {
     LOGGER.trace("Got CRD: {}", crd.getMetadata().getName());
     // get custom crd client

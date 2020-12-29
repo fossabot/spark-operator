@@ -6,14 +6,13 @@ import java.util.List;
 import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.KubernetesResource;
 import io.fabric8.kubernetes.api.model.Toleration;
 
-@JsonDeserialize(using = JsonDeserializer.None.class)
+@JsonDeserialize
 public class SparkNode implements KubernetesResource {
 
   private static final long serialVersionUID = 5917995090358580518L;

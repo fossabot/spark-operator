@@ -5,12 +5,11 @@ import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import io.fabric8.kubernetes.api.model.KubernetesResource;
 
-@JsonDeserialize(using = JsonDeserializer.None.class)
+@JsonDeserialize
 @JsonInclude(Include.NON_NULL)
 public class SparkClusterStatusSystemd implements KubernetesResource {
 
@@ -19,8 +18,7 @@ public class SparkClusterStatusSystemd implements KubernetesResource {
   private SparkClusterStatusCommand runningCommand;
   private List<String> stagedCommands;
 
-  public SparkClusterStatusSystemd() {
-  }
+  public SparkClusterStatusSystemd() {}
 
   public SparkClusterStatusSystemd(SparkClusterStatusCommand runningCommand, List<String> stagedCommands) {
     this.runningCommand = runningCommand;

@@ -15,14 +15,11 @@ import org.junit.jupiter.api.TestInstance.Lifecycle;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.Pod;
-import io.fabric8.kubernetes.api.model.PodStatus;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.server.mock.KubernetesServer;
 import tech.stackable.spark.operator.cluster.SparkCluster;
 import tech.stackable.spark.operator.cluster.SparkClusterController;
 import tech.stackable.spark.operator.cluster.statemachine.SparkClusterStateMachine.ClusterState;
-import tech.stackable.spark.operator.common.state.PodState;
-import tech.stackable.spark.operator.common.type.SparkOperatorConfig;
 
 @TestInstance(Lifecycle.PER_CLASS)
 public class SparkClusterStateMachineTest {

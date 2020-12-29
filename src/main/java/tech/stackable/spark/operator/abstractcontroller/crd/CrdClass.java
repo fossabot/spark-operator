@@ -7,8 +7,8 @@ import io.fabric8.kubernetes.client.CustomResource;
 /**
  * CRD class for CRD controller with spec and status
  *
- * @param <Spec>   - crd spec
- * @param <Status> - crd status
+ * @param <Spec>   crd spec
+ * @param <Status> crd status
  */
 public class CrdClass<Spec extends Serializable, Status extends Serializable> extends CustomResource {
 
@@ -17,8 +17,7 @@ public class CrdClass<Spec extends Serializable, Status extends Serializable> ex
   private Spec spec;
   private Status status;
 
-  public CrdClass() {
-  }
+  public CrdClass() {}
 
   public CrdClass(Spec spec, Status status) {
     this.spec = spec;

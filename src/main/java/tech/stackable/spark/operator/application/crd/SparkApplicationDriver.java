@@ -1,11 +1,10 @@
 package tech.stackable.spark.operator.application.crd;
 
-import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import io.fabric8.kubernetes.api.model.KubernetesResource;
 
-@JsonDeserialize(using = JsonDeserializer.None.class)
+@JsonDeserialize
 public class SparkApplicationDriver implements KubernetesResource {
 
   private static final long serialVersionUID = 1451406324355746300L;

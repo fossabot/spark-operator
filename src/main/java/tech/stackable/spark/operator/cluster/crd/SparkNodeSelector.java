@@ -3,12 +3,11 @@ package tech.stackable.spark.operator.cluster.crd;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import io.fabric8.kubernetes.api.model.KubernetesResource;
 
-@JsonDeserialize(using = JsonDeserializer.None.class)
+@JsonDeserialize
 public class SparkNodeSelector implements KubernetesResource {
 
   private static final long serialVersionUID = 2535064095918732663L;

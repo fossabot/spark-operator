@@ -2,7 +2,6 @@ package tech.stackable.spark.operator.cluster.statemachine;
 
 import common.Util;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -61,6 +60,12 @@ public class SparkSystemdStateMachineTest {
     SparkSystemdStateMachine sm = new SparkSystemdStateMachine(clusterController);
     // start state
     assertEquals(sm.getState(), SystemdState.SYSTEMD_READY);
+
+    // activate systemd state machine in cluster
+    systemdController.process(systemd);
+    assertEquals(SystemdState.SYSTEMD_READY, sm.getState());
+
+    clusterController.process(cluster);
 
   }
 }

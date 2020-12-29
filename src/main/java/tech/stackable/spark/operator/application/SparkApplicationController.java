@@ -37,12 +37,6 @@ public class SparkApplicationController extends AbstractCrdController<SparkAppli
   }
 
   @Override
-  protected void waitForAllInformersSynced() {
-    while (!getCrdSharedIndexInformer().hasSynced()) {}
-    LOGGER.info("SparkApplication informer initialized ... waiting for changes");
-  }
-
-  @Override
   public void process(SparkApplication crd) {
     LOGGER.trace("Got CRD: {}", crd.getMetadata().getName());
     launch(crd);
@@ -51,7 +45,7 @@ public class SparkApplicationController extends AbstractCrdController<SparkAppli
   /**
    * Launch the given application, transform config parameters, set executor and driver options etc.
    *
-   * @param app - spark application configured via yaml/json
+   * @param app spark application configured via yaml/json
    *
    */
   private void launch(SparkApplication app) {
@@ -106,7 +100,7 @@ public class SparkApplicationController extends AbstractCrdController<SparkAppli
       }
 
       if (spec.getArgs().size() > 0) {
-        launcher.addAppArgs(spec.getArgs().toArray(new String[spec.getArgs().size()]));
+        launcher.addAppArgs(spec.getArgs().toArray(String[]::new));
       }
       // start with listener
       launcher.startApplication(sparkAppListener);
@@ -206,12 +200,10 @@ public class SparkApplicationController extends AbstractCrdController<SparkAppli
     }
 
     @Override
-    public void infoChanged(SparkAppHandle handle) {
-    }
+    public void infoChanged(SparkAppHandle handle) {}
 
     @Override
-    public void run() {
-    }
+    public void run() {}
   }
 
 }

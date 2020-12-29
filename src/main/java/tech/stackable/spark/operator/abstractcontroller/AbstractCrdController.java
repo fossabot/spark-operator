@@ -30,9 +30,9 @@ import org.slf4j.LoggerFactory;
  * Abstract CRD Controller to work with custom CRDs. Applies given CRD and orders events (add, update, delete)
  * in an blocking queue.
  *
- * @param <Crd>         - pojo extending CustomResource
- * @param <CrdList>     - pojo extending CustomResourceList
- * @param <CrdDoneable> - pojo extending CustomResourceDoneable
+ * @param <Crd>         pojo extending CustomResource
+ * @param <CrdList>     pojo extending CustomResourceList
+ * @param <CrdDoneable> pojo extending CustomResourceDoneable
  */
 public abstract class AbstractCrdController<
   Crd extends CustomResource,
@@ -48,7 +48,6 @@ public abstract class AbstractCrdController<
   private final String crdPath;
   private final Long resyncCycle;
 
-  private List<HasMetadata> crdMetadata;
   private CustomResourceDefinitionContext crdContext;
   private String namespace;
 
@@ -84,7 +83,7 @@ public abstract class AbstractCrdController<
    */
   @SuppressWarnings("unchecked")
   public void init() {
-    crdMetadata = loadYaml(crdPath);
+    List<HasMetadata> crdMetadata = loadYaml(crdPath);
 
     informerFactory = client.informers();
 
@@ -153,7 +152,7 @@ public abstract class AbstractCrdController<
   /**
    * Overwrite method to specify what should be done after the blocking queue has elements
    *
-   * @param crd - specified crd resource class for that controller
+   * @param crd specified crd resource class for that controller
    */
   protected abstract void process(Crd crd);
 
@@ -161,13 +160,19 @@ public abstract class AbstractCrdController<
    * Overwrite method to add more informers to be synced (e.g. pods)
    */
   protected void waitForAllInformersSynced() {
-    while (!crdSharedIndexInformer.hasSynced()) {}
+    while (!crdSharedIndexInformer.hasSynced()) {
+      try {
+        Thread.sleep(100);
+      } catch (InterruptedException e) {
+        LOGGER.error("Interrupted during informer sync: {}", e.getMessage());
+      }
+    }
   }
 
   /**
    * Load yaml crd from file path
    *
-   * @param path - path to yaml file
+   * @param path path to yaml file
    *
    * @return List<HasMetadata> of that crd
    */
@@ -185,13 +190,12 @@ public abstract class AbstractCrdController<
   /**
    * Create or replace the crd in the API Server
    *
-   * @param namespace - given namespace
-   * @param metaData  - List<HasMetadata> from the yaml file
+   * @param namespace given namespace
+   * @param metaData  List<HasMetadata> from the yaml file
    *
-   * @return List<HasMetadata> of affected crds
    */
-  private List<HasMetadata> writeCrd(String namespace, List<HasMetadata> metaData) {
-    return client.resourceList(metaData).inNamespace(namespace).createOrReplace();
+  private void writeCrd(String namespace, List<HasMetadata> metaData) {
+    client.resourceList(metaData).inNamespace(namespace).createOrReplace();
   }
 
   /**
@@ -236,9 +240,7 @@ public abstract class AbstractCrdController<
     enqueueCrd(crdNew);
   }
 
-  private void onCrdDelete(Crd crd, boolean deletedFinalStateUnknown) {
-
-  }
+  private void onCrdDelete(Crd crd, boolean deletedFinalStateUnknown) {}
 
   /**
    * Register crd event handlers for add, update and delete
@@ -266,9 +268,9 @@ public abstract class AbstractCrdController<
   }
 
   /**
-   * Add elements / events to the blocking queue
+   * Add elements to the blocking queue
    *
-   * @param crd - your controller crd class
+   * @param crd your controller crd class
    */
   protected void enqueueCrd(Crd crd) {
     String key = Cache.metaNamespaceKeyFunc(crd);
@@ -286,15 +288,15 @@ public abstract class AbstractCrdController<
     return crdClient;
   }
 
-  public CustomResourceDefinitionContext getCrdContext() {
+  protected CustomResourceDefinitionContext getCrdContext() {
     return crdContext;
   }
 
-  public String getNamespace() {
+  protected String getNamespace() {
     return namespace;
   }
 
-  public Long getResyncCycle() {
+  protected Long getResyncCycle() {
     return resyncCycle;
   }
 
@@ -302,7 +304,7 @@ public abstract class AbstractCrdController<
     return client;
   }
 
-  public SharedInformerFactory getInformerFactory() {
+  protected SharedInformerFactory getInformerFactory() {
     return informerFactory;
   }
 
@@ -310,7 +312,7 @@ public abstract class AbstractCrdController<
     return crdSharedIndexInformer;
   }
 
-  public Lister<Crd> getCrdLister() {
+  protected Lister<Crd> getCrdLister() {
     return crdLister;
   }
 

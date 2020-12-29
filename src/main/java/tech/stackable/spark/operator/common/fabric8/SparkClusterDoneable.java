@@ -6,7 +6,7 @@ import tech.stackable.spark.operator.cluster.SparkCluster;
 
 public class SparkClusterDoneable extends CustomResourceDoneable<SparkCluster> {
 
-  public SparkClusterDoneable(SparkCluster cluster, Function function) {
+  public SparkClusterDoneable(SparkCluster cluster, Function<SparkCluster, SparkCluster> function) {
     super(cluster, function);
   }
 }

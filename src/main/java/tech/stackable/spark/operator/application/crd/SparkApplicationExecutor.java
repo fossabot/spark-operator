@@ -3,12 +3,11 @@ package tech.stackable.spark.operator.application.crd;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import io.fabric8.kubernetes.api.model.KubernetesResource;
 
-@JsonDeserialize(using = JsonDeserializer.None.class)
+@JsonDeserialize
 public class SparkApplicationExecutor implements KubernetesResource {
 
   private static final long serialVersionUID = 5905650793866264723L;
@@ -41,9 +40,7 @@ public class SparkApplicationExecutor implements KubernetesResource {
     return coreLimit;
   }
 
-  public void setCoreLimit(String coreLimit) {
-    this.coreLimit = coreLimit;
-  }
+  public void setCoreLimit(String coreLimit) { this.coreLimit = coreLimit; }
 
   public String getMemory() {
     return memory;

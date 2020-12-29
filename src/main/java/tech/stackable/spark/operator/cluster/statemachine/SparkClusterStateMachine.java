@@ -45,7 +45,7 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
   /**
    * Reconcile the spark cluster. Compare current with desired state and adapt via events
    *
-   * @param crd    - current spark cluster
+   * @param crd current spark cluster
    *
    * @return ClusterEvent:
    * INITIAL if no status found or command running which is not stop
@@ -144,8 +144,8 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
   /**
    * Handle events and execute given states
    *
-   * @param crd - spark cluster
-   * @param event   - given event
+   * @param crd spark cluster
+   * @param event given event
    */
   @Override
   public void transition(SparkCluster crd, ClusterEvent event) {

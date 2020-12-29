@@ -2,12 +2,11 @@ package tech.stackable.spark.operator.cluster.crd;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import io.fabric8.kubernetes.api.model.KubernetesResource;
 
-@JsonDeserialize(using = JsonDeserializer.None.class)
+@JsonDeserialize
 @JsonInclude(Include.NON_NULL)
 public class SparkClusterStatusCommand implements KubernetesResource {
 
@@ -20,8 +19,7 @@ public class SparkClusterStatusCommand implements KubernetesResource {
   private String finishedAt;
   private String status;
 
-  public SparkClusterStatusCommand() {
-  }
+  public SparkClusterStatusCommand() {}
 
   public SparkClusterStatusCommand(String command, String reason, String startedAt, String finishedAt, String status) {
     this.command = command;

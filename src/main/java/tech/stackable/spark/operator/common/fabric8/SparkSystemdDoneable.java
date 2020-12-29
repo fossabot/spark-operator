@@ -6,7 +6,7 @@ import tech.stackable.spark.operator.systemd.SparkSystemd;
 
 public class SparkSystemdDoneable extends CustomResourceDoneable<SparkSystemd> {
 
-  public SparkSystemdDoneable(SparkSystemd systemd, Function function) {
+  public SparkSystemdDoneable(SparkSystemd systemd, Function<SparkSystemd, SparkSystemd> function) {
     super(systemd, function);
   }
 }
