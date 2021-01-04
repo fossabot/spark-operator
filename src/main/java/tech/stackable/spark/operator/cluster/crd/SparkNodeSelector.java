@@ -2,6 +2,7 @@ package tech.stackable.spark.operator.cluster.crd;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
@@ -13,6 +14,7 @@ public class SparkNodeSelector implements KubernetesResource {
   private static final long serialVersionUID = 2535064095918732663L;
 
   private String name;
+  private String nodeName;
   private Integer instances = 1;
   private String memory;
   private String cores;
@@ -24,6 +26,14 @@ public class SparkNodeSelector implements KubernetesResource {
 
   public void setName(String name) {
     this.name = name;
+  }
+
+  public String getNodeName() {
+    return nodeName;
+  }
+
+  public void setNodeName(String nodeName) {
+    this.nodeName = nodeName;
   }
 
   public Integer getInstances() {
@@ -59,62 +69,24 @@ public class SparkNodeSelector implements KubernetesResource {
   }
 
   @Override
-  public int hashCode() {
-    final int prime = 31;
-    int result = 1;
-    result = prime * result + ((cores == null) ? 0 : cores.hashCode());
-    result = prime * result + ((instances == null) ? 0 : instances.hashCode());
-    result = prime * result + ((matchLabels == null) ? 0 : matchLabels.hashCode());
-    result = prime * result + ((memory == null) ? 0 : memory.hashCode());
-    result = prime * result + ((name == null) ? 0 : name.hashCode());
-    return result;
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    SparkNodeSelector that = (SparkNodeSelector) o;
+    return Objects.equals(name, that.name) &&
+      Objects.equals(nodeName, that.nodeName) &&
+      Objects.equals(instances, that.instances) &&
+      Objects.equals(memory, that.memory) &&
+      Objects.equals(cores, that.cores) &&
+      Objects.equals(matchLabels, that.matchLabels);
   }
 
   @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (obj == null) {
-      return false;
-    }
-    if (getClass() != obj.getClass()) {
-      return false;
-    }
-    SparkNodeSelector other = (SparkNodeSelector) obj;
-    if (cores == null) {
-      if (other.cores != null) {
-        return false;
-      }
-    } else if (!cores.equals(other.cores)) {
-      return false;
-    }
-    if (instances == null) {
-      if (other.instances != null) {
-        return false;
-      }
-    } else if (!instances.equals(other.instances)) {
-      return false;
-    }
-    if (matchLabels == null) {
-      if (other.matchLabels != null) {
-        return false;
-      }
-    } else if (!matchLabels.equals(other.matchLabels)) {
-      return false;
-    }
-    if (memory == null) {
-      if (other.memory != null) {
-        return false;
-      }
-    } else if (!memory.equals(other.memory)) {
-      return false;
-    }
-    if (name == null) {
-      return other.name == null;
-    } else {
-      return name.equals(other.name);
-    }
+  public int hashCode() {
+    return Objects.hash(name, nodeName, instances, memory, cores, matchLabels);
   }
-
 }

@@ -1,5 +1,7 @@
 package tech.stackable.spark.operator.application.crd;
 
+import java.util.Objects;
+
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import io.fabric8.kubernetes.api.model.KubernetesResource;
@@ -16,17 +18,13 @@ public class SparkApplicationDriver implements KubernetesResource {
   private String image;
   private String serviceAccount;
 
-  public String getCores() {
-    return cores;
-  }
+  public String getCores() { return cores; }
 
   public void setCores(String cores) {
     this.cores = cores;
   }
 
-  public String getCoreLimit() {
-    return coreLimit;
-  }
+  public String getCoreLimit() { return coreLimit; }
 
   public void setCoreLimit(String coreLimit) {
     this.coreLimit = coreLimit;
@@ -48,9 +46,7 @@ public class SparkApplicationDriver implements KubernetesResource {
     this.memoryOverhead = memoryOverhead;
   }
 
-  public String getImage() {
-    return image;
-  }
+  public String getImage() { return image; }
 
   public void setImage(String image) {
     this.image = image;
@@ -60,75 +56,27 @@ public class SparkApplicationDriver implements KubernetesResource {
     return serviceAccount;
   }
 
-  public void setServiceAccount(String serviceAccount) {
-    this.serviceAccount = serviceAccount;
+  public void setServiceAccount(String serviceAccount) { this.serviceAccount = serviceAccount; }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    SparkApplicationDriver that = (SparkApplicationDriver) o;
+    return Objects.equals(cores, that.cores) &&
+      Objects.equals(coreLimit, that.coreLimit) &&
+      Objects.equals(memory, that.memory) &&
+      Objects.equals(memoryOverhead, that.memoryOverhead) &&
+      Objects.equals(image, that.image) &&
+      Objects.equals(serviceAccount, that.serviceAccount);
   }
 
   @Override
   public int hashCode() {
-    final int prime = 31;
-    int result = 1;
-    result = prime * result + ((coreLimit == null) ? 0 : coreLimit.hashCode());
-    result = prime * result + ((cores == null) ? 0 : cores.hashCode());
-    result = prime * result + ((image == null) ? 0 : image.hashCode());
-    result = prime * result + ((memory == null) ? 0 : memory.hashCode());
-    result = prime * result + ((memoryOverhead == null) ? 0 : memoryOverhead.hashCode());
-    result = prime * result + ((serviceAccount == null) ? 0 : serviceAccount.hashCode());
-    return result;
+    return Objects.hash(cores, coreLimit, memory, memoryOverhead, image, serviceAccount);
   }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (obj == null) {
-      return false;
-    }
-    if (getClass() != obj.getClass()) {
-      return false;
-    }
-    SparkApplicationDriver other = (SparkApplicationDriver) obj;
-    if (coreLimit == null) {
-      if (other.coreLimit != null) {
-        return false;
-      }
-    } else if (!coreLimit.equals(other.coreLimit)) {
-      return false;
-    }
-    if (cores == null) {
-      if (other.cores != null) {
-        return false;
-      }
-    } else if (!cores.equals(other.cores)) {
-      return false;
-    }
-    if (image == null) {
-      if (other.image != null) {
-        return false;
-      }
-    } else if (!image.equals(other.image)) {
-      return false;
-    }
-    if (memory == null) {
-      if (other.memory != null) {
-        return false;
-      }
-    } else if (!memory.equals(other.memory)) {
-      return false;
-    }
-    if (memoryOverhead == null) {
-      if (other.memoryOverhead != null) {
-        return false;
-      }
-    } else if (!memoryOverhead.equals(other.memoryOverhead)) {
-      return false;
-    }
-    if (serviceAccount == null) {
-      return other.serviceAccount == null;
-    } else {
-      return serviceAccount.equals(other.serviceAccount);
-    }
-  }
-
 }

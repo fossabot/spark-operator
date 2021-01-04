@@ -17,7 +17,7 @@ public enum SparkManagerCommand {
     return state;
   }
 
-  public static SparkManagerCommand getSystemdCommand(String command) {
+  public static SparkManagerCommand getManagerCommand(String command) {
     if (command != null) {
       SparkManagerCommand[] commands = {START, STOP, UPDATE, RESTART};
 

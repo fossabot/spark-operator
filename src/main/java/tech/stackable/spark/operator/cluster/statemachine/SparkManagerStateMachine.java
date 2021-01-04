@@ -58,7 +58,7 @@ public class SparkManagerStateMachine implements SparkStateMachine<SparkCluster,
     // running command == started
     else if (managerStatus.getRunningCommand() != null
       && managerStatus.getRunningCommand().getStatus().equals(SparkManagerCommandState.STARTED.toString())) {
-      SparkManagerCommand managerCommand = SparkManagerCommand.getSystemdCommand(managerStatus.getRunningCommand().getCommand());
+      SparkManagerCommand managerCommand = SparkManagerCommand.getManagerCommand(managerStatus.getRunningCommand().getCommand());
       // event == update AND image not updated
       if (managerCommand == SparkManagerCommand.UPDATE
         && crd.getStatus().getImage().getName().equals(crd.getSpec().getImage())) {

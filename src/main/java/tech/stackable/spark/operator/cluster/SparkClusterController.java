@@ -32,8 +32,8 @@ import org.slf4j.LoggerFactory;
 import tech.stackable.spark.operator.abstractcontroller.AbstractCrdController;
 import tech.stackable.spark.operator.cluster.crd.SparkCluster;
 import tech.stackable.spark.operator.cluster.crd.SparkNode;
+import tech.stackable.spark.operator.cluster.crd.SparkNode.SparkNodeType;
 import tech.stackable.spark.operator.cluster.crd.SparkNodeSelector;
-import tech.stackable.spark.operator.cluster.crd.SparkNodeWorker;
 import tech.stackable.spark.operator.cluster.statemachine.SparkClusterStateMachine;
 import tech.stackable.spark.operator.cluster.statemachine.SparkManagerStateMachine;
 import tech.stackable.spark.operator.common.fabric8.SparkClusterDoneable;
@@ -184,7 +184,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
         .endOwnerReference()
       .endMetadata()
       .withNewSpec()
-        .withTolerations(node.getTolerations())
+        .withTolerations(cluster.getSpec().getTolerations())
         // TODO: check for null / zero elements
         .withNodeSelector(selector.getMatchLabels())
         .withVolumes(vol)
@@ -389,7 +389,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
    * @return pod name
    */
   private static String createPodName(SparkCluster cluster, SparkNode node, boolean withUUID) {
-    String podName = cluster.getMetadata().getName() + "-" + node.getPodTypeName() + "-";
+    String podName = cluster.getMetadata().getName() + "-" + node.getNodeType() + "-";
     if (withUUID) {
       podName += UUID.randomUUID().toString().replace("-", "").substring(0, 8);
     }
@@ -491,7 +491,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
       StringBuffer sbEnv = new StringBuffer();
       // only worker has required information to be set
       // all known data in yaml and pojo for worker
-      if (node.getPodTypeName().equals(SparkNodeWorker.POD_TYPE)) {
+      if (node.getNodeType() == SparkNodeType.WORKER) {
         addToSparkEnv(sbEnv, SparkConfig.SPARK_WORKER_CORES, entry.getValue().getCores());
         addToSparkEnv(sbEnv, SparkConfig.SPARK_WORKER_MEMORY, entry.getValue().getMemory());
       }

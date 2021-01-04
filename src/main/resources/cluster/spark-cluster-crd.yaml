@@ -37,6 +37,7 @@ spec:
             spec:
               type: object
               properties:
+                # master properties
                 master:
                   type: object
                   properties:
@@ -48,6 +49,9 @@ spec:
                         properties:
                           # to identify selector
                           name:
+                            type: string
+                          # replacement for matchLabels
+                          nodeName:
                             type: string
                           # number of master instances
                           instances:
@@ -65,23 +69,6 @@ spec:
                               kubernetes.io/hostname:
                                 type: string
                     # end selectors
-                    # tolerations
-                    tolerations:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          key:
-                            type: string
-                          operator:
-                            type: string
-                          effect:
-                            type: string
-                          value:
-                            type: string
-                          tolerationSeconds:
-                            type: integer
-                    # end tolerations
                     # command to be run for startup
                     commands:
                       type: array
@@ -112,6 +99,7 @@ spec:
                             type: string
                           value:
                             type: string
+                # worker properties
                 worker:
                   type: object
                   properties:
@@ -123,6 +111,9 @@ spec:
                         properties:
                           # to identify selector
                           name:
+                            type: string
+                          # replacement for matchLabels
+                          nodeName:
                             type: string
                           # number of worker instances
                           instances:
@@ -140,23 +131,6 @@ spec:
                               kubernetes.io/hostname:
                                 type: string
                     # end selector
-                    # tolerations
-                    tolerations:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          key:
-                            type: string
-                          operator:
-                            type: string
-                          effect:
-                            type: string
-                          value:
-                            type: string
-                          tolerationSeconds:
-                            type: integer
-                    # end tolerations
                     # command to be run for startup
                     commands:
                       type: array
@@ -187,6 +161,69 @@ spec:
                             type: string
                           value:
                             type: string
+                # history server properties
+                historyServer:
+                  type: object
+                  properties:
+                    # selector start
+                    selectors:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          # to identify selector
+                          name:
+                            type: string
+                          # replacement for matchLabels
+                          nodeName:
+                            type: string
+                          # number of worker instances
+                          instances:
+                            type: integer
+                          # number of worker cores
+                          cores:
+                            type: string
+                          # number of worker memory
+                          memory:
+                            type: string
+                          # match nodes
+                          matchLabels:
+                            type: object
+                            properties:
+                              kubernetes.io/hostname:
+                                type: string
+                    # end selector
+                    # command to be run for startup
+                    commands:
+                      type: array
+                      items:
+                        type: string
+                    # arguments required for start up
+                    args:
+                      type: array
+                      items:
+                        type: string
+                    # spark config
+                    sparkConfiguration:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          value:
+                            type: string
+                    # environment variables set before startup
+                    env:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          value:
+                            type: string
+                # common properties
                 # spark image if coming from repository
                 image:
                   type: string
@@ -196,6 +233,23 @@ spec:
                 # if set required when submitting applications
                 secret:
                   type: string
+                # tolerations
+                tolerations:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      key:
+                        type: string
+                      operator:
+                        type: string
+                      effect:
+                        type: string
+                      value:
+                        type: string
+                      tolerationSeconds:
+                        type: integer
+                # end tolerations
             # subresource status
             status:
               type: object

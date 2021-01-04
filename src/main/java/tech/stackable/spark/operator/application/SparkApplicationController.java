@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import tech.stackable.spark.operator.abstractcontroller.AbstractCrdController;
 import tech.stackable.spark.operator.application.crd.SparkApplication;
 import tech.stackable.spark.operator.application.crd.SparkApplicationSpec;
+import tech.stackable.spark.operator.cluster.crd.SparkNode.SparkNodeType;
 import tech.stackable.spark.operator.cluster.crd.SparkNodeMaster;
 import tech.stackable.spark.operator.common.fabric8.SparkApplicationDoneable;
 import tech.stackable.spark.operator.common.fabric8.SparkApplicationList;
@@ -147,7 +148,7 @@ public class SparkApplicationController extends AbstractCrdController<SparkAppli
       }
 
       // is master?
-      if (!pod.getMetadata().getName().contains(SparkNodeMaster.POD_TYPE)) {
+      if (!pod.getMetadata().getName().contains(SparkNodeType.MASTER.toString())) {
         continue;
       }
 

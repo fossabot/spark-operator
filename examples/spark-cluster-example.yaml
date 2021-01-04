@@ -3,38 +3,22 @@ kind: SparkCluster
 metadata:
   name: spark-cluster
 spec:
+  # start master
   master:
     selectors:
       - name: "master-bawa-virtualbox"
+        nodeName: "bawa-virtualbox"
         instances: 1
         cores: "1"
         memory: "1g"
         matchLabels:
           kubernetes.io/hostname: "bawa-virtualbox"
-    tolerations:
-      - key: "kubernetes.io/arch"
-        operator: "Equal"
-        effect: "NoSchedule"
-        value: "stackable-linux"
-      - key: "kubernetes.io/arch"
-        operator: "Equal"
-        effect: "NoExecute"
-        value: "stackable-linux"
-      - key: "node.kubernetes.io/unreachable"
-        operator: "Exists"
-        effect: "NoSchedule"
-      - key: "node.kubernetes.io/not-ready"
-        operator: "Exists"
-        effect: "NoExecute"
-        tolerationSeconds: 300
-      - key: "node.kubernetes.io/unreachable"
-        operator: "Exists"
-        effect: "NoExecute"
-        tolerationSeconds: 300
     commands:
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-master.sh"
     # spark-defaults.conf
     #sparkConfiguration:
+    #  - name:
+    #  - value:
     # spark-env.sh
     env:
       # do not fork processes
@@ -42,40 +26,24 @@ spec:
         value: "true"
       - name: "SPARK_CONF_DIR"
         value: "{{configroot}}/conf"
+  # end master
+  # start worker
   worker:
     selectors:
       - name: "worker-1-core-4g-memory-bawa-virtualbox"
+        nodeName: "bawa-virtualbox"
         instances: 1
         cores: "1"
         memory: "4g"
         matchLabels:
           kubernetes.io/hostname: "bawa-virtualbox"
       - name: "worker-2-core-5g-memory-bawa-virtualbox"
+        nodeName: "bawa-virtualbox"
         instances: 1
         cores: "2"
         memory: "5g"
         matchLabels:
           kubernetes.io/hostname: "bawa-virtualbox"
-    tolerations:
-      - key: "kubernetes.io/arch"
-        operator: "Equal"
-        effect: "NoSchedule"
-        value: "stackable-linux"
-      - key: "kubernetes.io/arch"
-        operator: "Equal"
-        effect: "NoExecute"
-        value: "stackable-linux"
-      - key: "node.kubernetes.io/unreachable"
-        operator: "Exists"
-        effect: "NoSchedule"
-      - key: "node.kubernetes.io/not-ready"
-        operator: "Exists"
-        effect: "NoExecute"
-        tolerationSeconds: 300
-      - key: "node.kubernetes.io/unreachable"
-        operator: "Exists"
-        effect: "NoExecute"
-        tolerationSeconds: 300
     commands:
       # hostname and port provided from operator: start-slave.sh args: spark://MASTER_URL:MASTER_PORT
       - "spark-3.0.1-bin-hadoop2.7/sbin/start-slave.sh"
@@ -90,6 +58,52 @@ spec:
         value: "true"
       - name: "SPARK_CONF_DIR"
         value: "{{configroot}}/conf"
+  # end worker
+  # start history server
+  historyServer:
+    selectors:
+      - name: "history-server-bawa-virtualbox"
+        nodeName: "bawa-virtualbox"
+        instances: 1
+        memory: "1g"
+        matchLabels:
+          kubernetes.io/hostname: "bawa-virtualbox"
+    commands:
+      - "spark-3.0.1-bin-hadoop2.7/sbin/start-history-server.sh"
+    # spark-defaults.conf
+    sparkConfiguration:
+      - name: "spark.history.fs.logDirectory"
+        value: "file:/opt/spark/events"
+      - name: "spark.history.fs.update.interval"
+        value: "10s"
+    # spark-env.sh
+    env:
+      # do not fork processes
+      - name: "SPARK_NO_DAEMONIZE"
+        value: "true"
+      - name: "SPARK_CONF_DIR"
+        value: "{{configroot}}/conf"
+  # end history server
   image: "spark:3.0.1"
   metrics: false
   secret: "stackable_secret"
+  tolerations:
+    - key: "kubernetes.io/arch"
+      operator: "Equal"
+      effect: "NoSchedule"
+      value: "stackable-linux"
+    - key: "kubernetes.io/arch"
+      operator: "Equal"
+      effect: "NoExecute"
+      value: "stackable-linux"
+    - key: "node.kubernetes.io/unreachable"
+      operator: "Exists"
+      effect: "NoSchedule"
+    - key: "node.kubernetes.io/not-ready"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 300
+    - key: "node.kubernetes.io/unreachable"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 300

@@ -7,9 +7,7 @@ public class SparkNodeMaster extends SparkNode {
 
   private static final long serialVersionUID = 5917995090358580518L;
 
-  public static final String POD_TYPE = "master";
-
   public SparkNodeMaster() {
-    setTypeName(POD_TYPE);
+    setTypeName(SparkNodeType.MASTER);
   }
 }

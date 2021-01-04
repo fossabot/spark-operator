@@ -18,10 +18,9 @@ public class SparkNode implements KubernetesResource {
   private static final long serialVersionUID = 5917995090358580518L;
 
   @JsonIgnore
-  private String podTypeName;
+  private SparkNodeType nodeType;
 
   private List<SparkNodeSelector> selectors = new ArrayList<>();
-  private List<Toleration> tolerations = new ArrayList<>();
   private List<String> commands = new ArrayList<>();
   private List<String> args = new ArrayList<>();
   private Set<EnvVar> sparkConfiguration = new HashSet<>();
@@ -31,11 +30,10 @@ public class SparkNode implements KubernetesResource {
   }
 
   public SparkNode(
-    List<SparkNodeSelector> selectors, List<Toleration> tolerations, List<String> commands,
+    List<SparkNodeSelector> selectors, List<String> commands,
     List<String> args, Set<EnvVar> sparkConfiguration, Set<EnvVar> env) {
 
     this.selectors = selectors;
-    this.tolerations = tolerations;
     this.commands = commands;
     this.args = args;
     this.sparkConfiguration = sparkConfiguration;
@@ -79,12 +77,12 @@ public class SparkNode implements KubernetesResource {
     return labelValues;
   }
 
-  public String getPodTypeName() {
-    return podTypeName;
+  public SparkNodeType getNodeType() {
+    return nodeType;
   }
 
-  protected final void setTypeName(String typeName) {
-    podTypeName = typeName;
+  protected final void setTypeName(SparkNodeType typeName) {
+    nodeType = typeName;
   }
 
   public List<SparkNodeSelector> getSelectors() {
@@ -93,14 +91,6 @@ public class SparkNode implements KubernetesResource {
 
   public void setSelectors(List<SparkNodeSelector> selectors) {
     this.selectors = selectors;
-  }
-
-  public List<Toleration> getTolerations() {
-    return tolerations;
-  }
-
-  public void setTolerations(List<Toleration> tolerations) {
-    this.tolerations = tolerations;
   }
 
   public List<String> getCommands() {
@@ -146,7 +136,6 @@ public class SparkNode implements KubernetesResource {
   public static class Builder {
 
     private List<SparkNodeSelector> selectors = new ArrayList<>();
-    private List<Toleration> tolerations = new ArrayList<>();
     private List<String> commands = new ArrayList<>();
     private List<String> args = new ArrayList<>();
     private Set<EnvVar> sparkConfiguration = new HashSet<>();
@@ -154,11 +143,6 @@ public class SparkNode implements KubernetesResource {
 
     public Builder withSparkSelectors(List<SparkNodeSelector> selectors) {
       this.selectors = selectors;
-      return this;
-    }
-
-    public Builder withTolerations(List<Toleration> tolerations) {
-      this.tolerations = tolerations;
       return this;
     }
 
@@ -183,8 +167,25 @@ public class SparkNode implements KubernetesResource {
     }
 
     public SparkNode build() {
-      return new SparkNode(selectors, tolerations, commands, args, sparkConfiguration, env);
+      return new SparkNode(selectors, commands, args, sparkConfiguration, env);
     }
 
   }
+
+  public enum SparkNodeType {
+    MASTER("master"),
+    WORKER("worker"),
+    HISTORY_SERVER("historyserver");
+
+    final String type;
+
+    SparkNodeType(String type) {
+      this.type = type;
+    }
+
+    public String toString() {
+      return type;
+    }
+  }
+
 }

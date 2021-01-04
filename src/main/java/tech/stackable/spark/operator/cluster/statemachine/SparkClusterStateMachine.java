@@ -68,13 +68,13 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
     if (SparkClusterController.getPodSpecToClusterDifference(master, masterPods) < 0) {
       List<Pod> deletedPods = controller.deleteAllPods(masterPods, crd, master);
       LOGGER.debug("[{}] - deleted {} {} pod(s): {}",
-        state.name(), deletedPods.size(), master.getPodTypeName(), SparkClusterController.metadataListToDebug(deletedPods));
+        state.name(), deletedPods.size(), master.getNodeType(), SparkClusterController.metadataListToDebug(deletedPods));
     }
     // delete excess worker pods
     if (SparkClusterController.getPodSpecToClusterDifference(worker, workerPods) < 0) {
       List<Pod> deletedPods = controller.deleteAllPods(workerPods, crd, worker);
       LOGGER.debug("[{}] - deleted {} {} pod(s): {}",
-        state.name(), deletedPods.size(), worker.getPodTypeName(), SparkClusterController.metadataListToDebug(deletedPods));
+        state.name(), deletedPods.size(), worker.getNodeType(), SparkClusterController.metadataListToDebug(deletedPods));
     }
 
     // run for initial state
@@ -87,7 +87,7 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
     else if (crd.getStatus().getManager() != null
             && crd.getStatus().getManager().getRunningCommand() != null
             && crd.getStatus().getManager().getRunningCommand().getStatus().equals(SparkManagerCommandState.FINISHED.toString())
-            && SparkManagerCommand.getSystemdCommand(crd.getStatus().getManager().getRunningCommand().getCommand())
+            && SparkManagerCommand.getManagerCommand(crd.getStatus().getManager().getRunningCommand().getCommand())
             != SparkManagerCommand.STOP) {
       event = ClusterEvent.INITIAL;
     }
@@ -134,8 +134,8 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
     else {
       LOGGER.debug("[{}] - {} [{} / {}] | {} [{} / {}]",
         state.name(),
-        master.getPodTypeName(), masterPods.size(), master.getInstances(),
-        worker.getPodTypeName(), workerPods.size(), worker.getInstances()
+        master.getNodeType(), masterPods.size(), master.getInstances(),
+        worker.getNodeType(), workerPods.size(), worker.getInstances()
       );
     }
     return event;
@@ -154,11 +154,11 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
         case INITIAL:
           // check for available status or create new one
           SparkClusterStatus status = crd.getStatus() != null ? crd.getStatus() : new SparkClusterStatus();
-          // add spark image (deployedImage) to status for systemd update
+          // add spark image (deployedImage) to status for manager update
           status.setImage(
             new SparkClusterStatusImage(crd.getSpec().getImage(), String.valueOf(System.currentTimeMillis()))
           );
-          // TODO: reset systemd?
+          // TODO: reset status for manager?
           status.setManager(null);
 
           crd.setStatus(status);
@@ -179,7 +179,7 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
           masterPods = controller.createPods(masterPods, crd, master);
 
           LOGGER.debug("[{}] - created {} {} pod(s): {}",
-            state.name(), masterPods.size(), master.getPodTypeName(), SparkClusterController.metadataListToDebug(masterPods));
+            state.name(), masterPods.size(), master.getNodeType(), SparkClusterController.metadataListToDebug(masterPods));
           break;
         }
         case WAIT_MASTER_HOST_NAME: {
@@ -219,7 +219,7 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
           workerPods = controller.createPods(workerPods, crd, worker);
 
           LOGGER.debug("[{}] - created {} {} pod(s): {}",
-            state.name(), workerPods.size(), worker.getPodTypeName(), SparkClusterController.metadataListToDebug(workerPods));
+            state.name(), workerPods.size(), worker.getNodeType(), SparkClusterController.metadataListToDebug(workerPods));
           break;
         }
         case WAIT_WORKER_HOST_NAME:
@@ -262,22 +262,23 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
    * |	|			        |							              |
    * |	|			        v			        create master	|
    * |	|		      WAIT_MASTER_RUNNING ----------->+
-   * |	|			        | create worker				      |
-   * |	|			        v							              |
+   * |	|			        | create worker				      ^
+   * |	v			        v							create master |
    * |	+-------> CREATE_WORKER ----------------->+
    * |	^			        | wait worker host name	    ^
    * |	| create	    |							              |
    * |	| worker	    v			        create master	|
    * |	+<------- WAIT_WORKER_HOST_NAME --------->+
-   * |	|			        | worker running			      |
+   * |	^			        | worker running			      ^
    * |	| create	    |							              |
    * |	| worker	    v			        create master |
    * |	+<------- WAIT_WORKER_RUNNING ----------->+
-   * |	| create	    | ready						          |
+   * |	^ create	    | ready						          ^
    * |	| worker	    v			        create master	|
-   * |	+-------- CLUSTER_READY ----------------->+
+   * |	+<------- CLUSTER_READY ----------------->+
    * |				        ^
-   * +----------------+
+   * v                |
+   * +--------------->+
    */
   public enum ClusterState {
     // states with their accepted transitions
