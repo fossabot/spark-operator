@@ -16,8 +16,8 @@ import tech.stackable.spark.operator.cluster.manager.SparkManagerController;
 public class Util {
   public static final String CLUSTER_CRD_PATH = "cluster/spark-cluster-crd.yaml";
   public static final String CLUSTER_EXAMPLE_PATH = "cluster/spark-cluster-example.yaml";
-  public static final String SYSTEMD_CRD_PATH = "manager/spark-systemd-crd.yaml";
-  public static final String SYSTEMD_EXAMPLE_PATH = "manager/spark-manager-example.yaml";
+  public static final String MANAGER_CRD_PATH = "manager/spark-manager-crd.yaml";
+  public static final String MANAGER_EXAMPLE_PATH = "manager/spark-manager-example.yaml";
   public static final long RESYNC_CYCLE = 60 * 1000L;
 
   public static SparkCluster loadSparkClusterExample(KubernetesClient client, SparkClusterController controller, String crdPath) {

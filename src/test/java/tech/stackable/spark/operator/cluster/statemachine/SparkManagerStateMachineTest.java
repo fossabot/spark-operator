@@ -38,7 +38,7 @@ public class SparkManagerStateMachineTest {
     clusterController = new SparkClusterController(client, Util.CLUSTER_CRD_PATH, Util.RESYNC_CYCLE);
     clusterController.init();
 
-    managerController = new SparkManagerController(client, Util.SYSTEMD_CRD_PATH, Util.CLUSTER_CRD_PATH, Util.RESYNC_CYCLE);
+    managerController = new SparkManagerController(client, Util.MANAGER_CRD_PATH, Util.CLUSTER_CRD_PATH, Util.RESYNC_CYCLE);
     managerController.init();
   }
 
@@ -54,7 +54,7 @@ public class SparkManagerStateMachineTest {
     SparkCluster cluster = Util.loadSparkClusterExample(client, clusterController, Util.CLUSTER_EXAMPLE_PATH);
     assertNotNull(cluster);
     // load manager example
-    SparkManager manager = Util.loadSparkManagerExample(client, managerController, Util.SYSTEMD_EXAMPLE_PATH);
+    SparkManager manager = Util.loadSparkManagerExample(client, managerController, Util.MANAGER_EXAMPLE_PATH);
     assertNotNull(manager);
 
     SparkManagerStateMachine sm = new SparkManagerStateMachine(clusterController);
