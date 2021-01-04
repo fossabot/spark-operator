@@ -228,18 +228,12 @@ spec:
                     timestamp:
                       type: string
       additionalPrinterColumns:
-        - name: Master
-          type: integer
-          jsonPath: .spec.master.instances
-        - name: Worker
-          type: integer
-          jsonPath: .spec.worker.instances
-        - name: Worker_Cores
+        - name: Image
           type: string
-          jsonPath: .spec.worker.cores
-        - name: Worker_Memory
+          jsonPath: .spec.image
+        - name: Secret
           type: string
-          jsonPath: .spec.worker.memory
+          jsonPath: .spec.secret
         - name: Age
           type: date
           jsonPath: .metadata.creationTimestamp

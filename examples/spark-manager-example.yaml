@@ -1,7 +1,7 @@
 apiVersion: spark.stackable.de/v1
-kind: SparkSystemd
+kind: SparkManager
 metadata:
   name: spark-restart
 spec:
   sparkClusterReference: "spark-cluster"
-  systemdAction: "restart"
+  managerAction: "restart"

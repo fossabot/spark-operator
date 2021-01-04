@@ -5,19 +5,19 @@ import java.util.List;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodStatus;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import tech.stackable.spark.operator.cluster.SparkCluster;
+import tech.stackable.spark.operator.cluster.crd.SparkCluster;
 import tech.stackable.spark.operator.cluster.SparkClusterController;
 import tech.stackable.spark.operator.cluster.crd.SparkNode;
 import tech.stackable.spark.operator.common.state.PodState;
 import tech.stackable.spark.operator.common.type.SparkOperatorConfig;
-import tech.stackable.spark.operator.systemd.SparkSystemd;
-import tech.stackable.spark.operator.systemd.SparkSystemdController;
+import tech.stackable.spark.operator.cluster.manager.crd.SparkManager;
+import tech.stackable.spark.operator.cluster.manager.SparkManagerController;
 
 public class Util {
   public static final String CLUSTER_CRD_PATH = "cluster/spark-cluster-crd.yaml";
   public static final String CLUSTER_EXAMPLE_PATH = "cluster/spark-cluster-example.yaml";
-  public static final String SYSTEMD_CRD_PATH = "systemd/spark-systemd-crd.yaml";
-  public static final String SYSTEMD_EXAMPLE_PATH = "systemd/spark-systemd-example.yaml";
+  public static final String SYSTEMD_CRD_PATH = "manager/spark-systemd-crd.yaml";
+  public static final String SYSTEMD_EXAMPLE_PATH = "manager/spark-manager-example.yaml";
   public static final long RESYNC_CYCLE = 60 * 1000L;
 
   public static SparkCluster loadSparkClusterExample(KubernetesClient client, SparkClusterController controller, String crdPath) {
@@ -33,17 +33,17 @@ public class Util {
     return cluster;
   }
 
-  public static SparkSystemd loadSparkSystemdExample(KubernetesClient client, SparkSystemdController controller, String crdPath) {
-    SparkSystemd systemd = controller
+  public static SparkManager loadSparkManagerExample(KubernetesClient client, SparkManagerController controller, String crdPath) {
+    SparkManager manager = controller
       .getCrdClient()
       .load(Thread.currentThread()
         .getContextClassLoader()
         .getResourceAsStream(crdPath))
       .create();
-    systemd.getMetadata().setUid("123456789");
-    systemd.getMetadata().setNamespace(client.getNamespace());
+    manager.getMetadata().setUid("123456789");
+    manager.getMetadata().setNamespace(client.getNamespace());
 
-    return systemd;
+    return manager;
   }
 
   public static void setNodeNames(List<Pod> pods, SparkNode node) {

@@ -12,23 +12,23 @@ public class SparkClusterStatus extends CustomResourceDefinitionStatus {
 
   private static final long serialVersionUID = -948085681809118449L;
 
-  private SparkClusterStatusSystemd systemd;
+  private SparkClusterStatusManager manager;
   private SparkClusterStatusImage image;
 
   public SparkClusterStatus() {
   }
 
-  private SparkClusterStatus(SparkClusterStatusSystemd systemd, SparkClusterStatusImage image) {
-    this.systemd = systemd;
+  private SparkClusterStatus(SparkClusterStatusManager manager, SparkClusterStatusImage image) {
+    this.manager = manager;
     this.image = image;
   }
 
-  public SparkClusterStatusSystemd getSystemd() {
-    return systemd;
+  public SparkClusterStatusManager getManager() {
+    return manager;
   }
 
-  public void setSystemd(SparkClusterStatusSystemd systemd) {
-    this.systemd = systemd;
+  public void setManager(SparkClusterStatusManager manager) {
+    this.manager = manager;
   }
 
   public SparkClusterStatusImage getImage() {
@@ -41,11 +41,11 @@ public class SparkClusterStatus extends CustomResourceDefinitionStatus {
 
   public static class Builder {
 
-    private SparkClusterStatusSystemd systemd;
+    private SparkClusterStatusManager manager;
     private SparkClusterStatusImage image;
 
-    public Builder withSystemdStatus(SparkClusterStatusSystemd systemd) {
-      this.systemd = systemd;
+    public Builder withSystemdStatus(SparkClusterStatusManager manager) {
+      this.manager = manager;
       return this;
     }
 
@@ -55,7 +55,7 @@ public class SparkClusterStatus extends CustomResourceDefinitionStatus {
     }
 
     public SparkClusterStatus build() {
-      return new SparkClusterStatus(systemd, image);
+      return new SparkClusterStatus(manager, image);
     }
 
   }

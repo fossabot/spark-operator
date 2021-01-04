@@ -30,11 +30,12 @@ import io.fabric8.kubernetes.client.informers.cache.Lister;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.stackable.spark.operator.abstractcontroller.AbstractCrdController;
+import tech.stackable.spark.operator.cluster.crd.SparkCluster;
 import tech.stackable.spark.operator.cluster.crd.SparkNode;
 import tech.stackable.spark.operator.cluster.crd.SparkNodeSelector;
 import tech.stackable.spark.operator.cluster.crd.SparkNodeWorker;
 import tech.stackable.spark.operator.cluster.statemachine.SparkClusterStateMachine;
-import tech.stackable.spark.operator.cluster.statemachine.SparkSystemdStateMachine;
+import tech.stackable.spark.operator.cluster.statemachine.SparkManagerStateMachine;
 import tech.stackable.spark.operator.common.fabric8.SparkClusterDoneable;
 import tech.stackable.spark.operator.common.fabric8.SparkClusterList;
 import tech.stackable.spark.operator.common.state.PodState;
@@ -53,13 +54,13 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   private SharedIndexInformer<Pod> podInformer;
   private Lister<Pod> podLister;
 
-  private final SparkSystemdStateMachine systemdStateMachine;
+  private final SparkManagerStateMachine systemdStateMachine;
   private final SparkClusterStateMachine clusterStateMachine;
 
   public SparkClusterController(KubernetesClient client, String crdPath, Long resyncCycle) {
     super(client, crdPath, resyncCycle);
 
-    systemdStateMachine = new SparkSystemdStateMachine(this);
+    systemdStateMachine = new SparkManagerStateMachine(this);
     clusterStateMachine = new SparkClusterStateMachine(this);
   }
 
@@ -75,7 +76,13 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 
   @Override
   protected void waitForAllInformersSynced() {
-    while (!getCrdSharedIndexInformer().hasSynced() || !podInformer.hasSynced()) {}
+    while (!getCrdSharedIndexInformer().hasSynced() || !podInformer.hasSynced()) {
+      try {
+        Thread.sleep(100);
+      } catch (InterruptedException e) {
+        LOGGER.error("Interrupted during informer sync: {}", e.getMessage());
+      }
+    }
     LOGGER.info("SparkCluster informer and pod informer initialized ... waiting for changes");
   }
 
@@ -188,7 +195,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
           .withCommand(node.getCommands())
           .withArgs(node.getArgs())
           .addNewVolumeMount()
-            .withMountPath(SparkOperatorConfig.POD_CONTAINER_VOLUME_MOUNT_PATH.toString())
+            .withMountPath(SparkOperatorConfig.POD_CONF_VOLUME_MOUNT_PATH.toString())
             .withName(cmName)
           .endVolumeMount()
         .withEnv(List.copyOf(node.getEnv()))
@@ -267,7 +274,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
    *
    * @return list of deleted pods
    */
-  public List<Pod> deletePods(List<Pod> pods, SparkCluster cluster, SparkNode node) {
+  public List<Pod> deleteAllPods(List<Pod> pods, SparkCluster cluster, SparkNode node) {
     List<Pod> deletedPods = new ArrayList<>();
     // remember processed pods to delete pods not machting any selector
     List<Pod> processedPods = new ArrayList<>();
@@ -308,11 +315,11 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   /**
    * Delete all node (master/worker) pods in cluster with no regard to spec -> systemd
    *
-   * @param cluster cluster specification to retrieve all used pods
+   * @param cluster specification to retrieve all used pods
    *
    * @return list of deleted pods
    */
-  public List<Pod> deletePods(SparkCluster cluster, SparkNode... nodes) {
+  public List<Pod> deleteAllPods(SparkCluster cluster, SparkNode... nodes) {
 
     // collect master and worker nodes
     List<Pod> pods = new ArrayList<>();
@@ -549,12 +556,11 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   }
 
   /**
-   * Delete config map content for master / worker
+   * Delete config map content for pod
    *
    * @param cluster spark cluster
-   * @param node    spark master / worker
    */
-  public void deleteConfigMaps(List<Pod> pods, SparkCluster cluster, SparkNode node) {
+  public void deleteConfigMaps(List<Pod> pods, SparkCluster cluster) {
     for (Pod pod : pods) {
       String cmName = createConfigMapName(pod);
 
@@ -597,7 +603,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
   }
 
   /**
-   * Add spark environment variables to stringbuffer for spark-env.sh configuration
+   * Add spark environment variables to string buffer for spark-env.sh configuration
    *
    * @param sb     string buffer to add to
    * @param config key
@@ -605,7 +611,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
    */
   private static void addToSparkEnv(StringBuffer sb, SparkConfig config, String value) {
     if (value != null && !value.isEmpty()) {
-      sb.append(config.getEnv()).append("=").append(value).append("\n");
+      sb.append(config.toEnv()).append("=").append(value).append("\n");
     }
   }
 
@@ -730,7 +736,7 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
     return output;
   }
 
-  public SparkSystemdStateMachine getSystemdStateMachine() {
+  public SparkManagerStateMachine getSystemdStateMachine() {
     return systemdStateMachine;
   }
 

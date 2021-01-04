@@ -92,8 +92,8 @@ public abstract class AbstractCrdController<
 
     crdSharedIndexInformer = informerFactory.sharedIndexInformerForCustomResource(
       crdContext,
-      (Class<Crd>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0],
-      (Class<CrdList>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[1],
+      (Class<Crd>) getGenericParameterClass(0),
+      (Class<CrdList>) getGenericParameterClass(1),
       resyncCycle
     );
 
@@ -101,9 +101,9 @@ public abstract class AbstractCrdController<
 
     crdClient = client.customResources(
       crdContext,
-      (Class<Crd>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0],
-      (Class<CrdList>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[1],
-      (Class<CrdDoneable>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[2]
+      (Class<Crd>) getGenericParameterClass(0),
+      (Class<CrdList>) getGenericParameterClass(1),
+      (Class<CrdDoneable>) getGenericParameterClass(2)
     );
 
     // initialize crd -> should be one for each controller
@@ -319,6 +319,10 @@ public abstract class AbstractCrdController<
 
   protected Lister<Crd> getCrdLister() {
     return crdLister;
+  }
+
+  private Object getGenericParameterClass(int index) {
+    return ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[index];
   }
 
 }

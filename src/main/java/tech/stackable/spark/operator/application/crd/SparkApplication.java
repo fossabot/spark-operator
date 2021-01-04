@@ -1,8 +1,6 @@
-package tech.stackable.spark.operator.application;
+package tech.stackable.spark.operator.application.crd;
 
 import tech.stackable.spark.operator.abstractcontroller.crd.CrdClass;
-import tech.stackable.spark.operator.application.crd.SparkApplicationSpec;
-import tech.stackable.spark.operator.application.crd.SparkApplicationStatus;
 
 public class SparkApplication extends CrdClass<SparkApplicationSpec, SparkApplicationStatus> {
 

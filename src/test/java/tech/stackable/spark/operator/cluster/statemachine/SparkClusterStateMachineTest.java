@@ -17,7 +17,7 @@ import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.server.mock.KubernetesServer;
-import tech.stackable.spark.operator.cluster.SparkCluster;
+import tech.stackable.spark.operator.cluster.crd.SparkCluster;
 import tech.stackable.spark.operator.cluster.SparkClusterController;
 import tech.stackable.spark.operator.cluster.statemachine.SparkClusterStateMachine.ClusterState;
 
@@ -125,7 +125,7 @@ public class SparkClusterStateMachineTest {
     assertEquals(ClusterState.READY, getState(controller));
 
     // delete worker and check for reconcile
-    controller.deletePods(cluster, cluster.getSpec().getWorker());
+    controller.deleteAllPods(cluster, cluster.getSpec().getWorker());
     controller.process(cluster);
     assertEquals(ClusterState.CREATE_WORKER, getState(controller));
   }

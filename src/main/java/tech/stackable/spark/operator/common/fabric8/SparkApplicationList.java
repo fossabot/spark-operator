@@ -1,7 +1,7 @@
 package tech.stackable.spark.operator.common.fabric8;
 
 import io.fabric8.kubernetes.client.CustomResourceList;
-import tech.stackable.spark.operator.application.SparkApplication;
+import tech.stackable.spark.operator.application.crd.SparkApplication;
 
 public class SparkApplicationList extends CustomResourceList<SparkApplication> {
 

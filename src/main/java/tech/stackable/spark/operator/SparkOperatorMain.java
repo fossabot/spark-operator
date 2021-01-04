@@ -3,7 +3,7 @@ package tech.stackable.spark.operator;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import tech.stackable.spark.operator.application.SparkApplicationController;
 import tech.stackable.spark.operator.cluster.SparkClusterController;
-import tech.stackable.spark.operator.systemd.SparkSystemdController;
+import tech.stackable.spark.operator.cluster.manager.SparkManagerController;
 
 /**
  * Main Class for Spark Operator: run via this command:
@@ -17,7 +17,7 @@ public class SparkOperatorMain {
 
   public static void main(String... args) {
     String clusterCrdPath = "cluster/spark-cluster-crd.yaml";
-    String SystemdCrdPath = "systemd/spark-systemd-crd.yaml";
+    String managerCrdPath = "manager/spark-manager-crd.yaml";
     String applicationCrdPath = "application/spark-application-crd.yaml";
 
     try {
@@ -27,9 +27,9 @@ public class SparkOperatorMain {
         RESYNC_CYCLE
       );
 
-      SparkSystemdController sparkSystemdController = new SparkSystemdController(
+      SparkManagerController sparkSystemdController = new SparkManagerController(
         null,
-        SystemdCrdPath,
+        managerCrdPath,
         clusterCrdPath,
         RESYNC_CYCLE
       );

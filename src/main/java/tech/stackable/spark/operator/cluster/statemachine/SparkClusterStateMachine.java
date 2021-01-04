@@ -10,15 +10,15 @@ import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tech.stackable.spark.operator.cluster.SparkCluster;
+import tech.stackable.spark.operator.cluster.crd.SparkCluster;
 import tech.stackable.spark.operator.cluster.SparkClusterController;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatus;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusImage;
 import tech.stackable.spark.operator.cluster.crd.SparkNode;
 import tech.stackable.spark.operator.cluster.statemachine.SparkClusterStateMachine.ClusterEvent;
 import tech.stackable.spark.operator.common.state.PodState;
-import tech.stackable.spark.operator.common.state.SparkSystemdCommand;
-import tech.stackable.spark.operator.common.state.SparkSystemdCommandState;
+import tech.stackable.spark.operator.common.state.SparkManagerCommand;
+import tech.stackable.spark.operator.common.state.SparkManagerCommandState;
 
 public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster, ClusterEvent> {
 
@@ -66,13 +66,13 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
     // delete excess master pods
     // TODO: leader?
     if (SparkClusterController.getPodSpecToClusterDifference(master, masterPods) < 0) {
-      List<Pod> deletedPods = controller.deletePods(masterPods, crd, master);
+      List<Pod> deletedPods = controller.deleteAllPods(masterPods, crd, master);
       LOGGER.debug("[{}] - deleted {} {} pod(s): {}",
         state.name(), deletedPods.size(), master.getPodTypeName(), SparkClusterController.metadataListToDebug(deletedPods));
     }
     // delete excess worker pods
     if (SparkClusterController.getPodSpecToClusterDifference(worker, workerPods) < 0) {
-      List<Pod> deletedPods = controller.deletePods(workerPods, crd, worker);
+      List<Pod> deletedPods = controller.deleteAllPods(workerPods, crd, worker);
       LOGGER.debug("[{}] - deleted {} {} pod(s): {}",
         state.name(), deletedPods.size(), worker.getPodTypeName(), SparkClusterController.metadataListToDebug(deletedPods));
     }
@@ -84,11 +84,11 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
       event = ClusterEvent.INITIAL;
     }
     // running command not null and status finished and command not stop
-    else if (crd.getStatus().getSystemd() != null
-            && crd.getStatus().getSystemd().getRunningCommand() != null
-            && crd.getStatus().getSystemd().getRunningCommand().getStatus().equals(SparkSystemdCommandState.FINISHED.toString())
-            && SparkSystemdCommand.getSystemdCommand(crd.getStatus().getSystemd().getRunningCommand().getCommand())
-            != SparkSystemdCommand.STOP) {
+    else if (crd.getStatus().getManager() != null
+            && crd.getStatus().getManager().getRunningCommand() != null
+            && crd.getStatus().getManager().getRunningCommand().getStatus().equals(SparkManagerCommandState.FINISHED.toString())
+            && SparkManagerCommand.getSystemdCommand(crd.getStatus().getManager().getRunningCommand().getCommand())
+            != SparkManagerCommand.STOP) {
       event = ClusterEvent.INITIAL;
     }
     // masters missing
@@ -159,7 +159,7 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
             new SparkClusterStatusImage(crd.getSpec().getImage(), String.valueOf(System.currentTimeMillis()))
           );
           // TODO: reset systemd?
-          status.setSystemd(null);
+          status.setManager(null);
 
           crd.setStatus(status);
           // update status
@@ -174,7 +174,7 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
           SparkNode master = crd.getSpec().getMaster();
           List<Pod> masterPods = controller.getPodsByNode(crd, master);
           // delete old configmap
-          controller.deleteConfigMaps(masterPods, crd, master);
+          controller.deleteConfigMaps(masterPods, crd);
           // create master instances if required
           masterPods = controller.createPods(masterPods, crd, master);
 

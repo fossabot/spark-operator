@@ -33,6 +33,7 @@ public class SparkNode implements KubernetesResource {
   public SparkNode(
     List<SparkNodeSelector> selectors, List<Toleration> tolerations, List<String> commands,
     List<String> args, Set<EnvVar> sparkConfiguration, Set<EnvVar> env) {
+
     this.selectors = selectors;
     this.tolerations = tolerations;
     this.commands = commands;
@@ -55,6 +56,27 @@ public class SparkNode implements KubernetesResource {
       }
     }
     return instances;
+  }
+
+  /**
+   * Return all available values given by a label for selector (e.g. host name)
+   *
+   * @param selectorLabel key in matchlabels to retrieve value from
+   * @return set of found values
+   */
+  @JsonIgnore
+  public Set<String> getSelectorLabels(String selectorLabel) {
+    Set<String> labelValues = new HashSet<>();
+    for (SparkNodeSelector selector : selectors) {
+      if (selector.getMatchLabels() == null) {
+        continue;
+      }
+      String value = selector.getMatchLabels().get(selectorLabel);
+      if (value != null) {
+        labelValues.add(value);
+      }
+    }
+    return labelValues;
   }
 
   public String getPodTypeName() {

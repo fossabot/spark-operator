@@ -1,4 +1,4 @@
-package tech.stackable.spark.operator.systemd.crd;
+package tech.stackable.spark.operator.cluster.manager.crd;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
@@ -8,7 +8,7 @@ import io.fabric8.kubernetes.api.model.apiextensions.v1.CustomResourceDefinition
 
 @JsonDeserialize
 @JsonInclude(Include.NON_NULL)
-public class SparkSystemdStatus extends CustomResourceDefinitionStatus {
+public class SparkManagerStatus extends CustomResourceDefinitionStatus {
 
   private static final long serialVersionUID = -3689504450554921281L;
 }

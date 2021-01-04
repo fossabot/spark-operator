@@ -1,6 +1,6 @@
 package tech.stackable.spark.operator.common.state;
 
-public enum SparkSystemdCommandState {
+public enum SparkManagerCommandState {
   STARTED("STARTED"),
   RUNNING("RUNNING"),
   ABORTED("ABORTED"),
@@ -9,7 +9,7 @@ public enum SparkSystemdCommandState {
 
   private final String state;
 
-  SparkSystemdCommandState(String state) {
+  SparkManagerCommandState(String state) {
     this.state = state;
   }
 

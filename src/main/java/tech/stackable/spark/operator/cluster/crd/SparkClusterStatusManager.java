@@ -11,16 +11,16 @@ import io.fabric8.kubernetes.api.model.KubernetesResource;
 
 @JsonDeserialize
 @JsonInclude(Include.NON_NULL)
-public class SparkClusterStatusSystemd implements KubernetesResource {
+public class SparkClusterStatusManager implements KubernetesResource {
 
   private static final long serialVersionUID = 7259902757939136149L;
 
   private SparkClusterStatusCommand runningCommand;
   private List<String> stagedCommands;
 
-  public SparkClusterStatusSystemd() {}
+  public SparkClusterStatusManager() {}
 
-  public SparkClusterStatusSystemd(SparkClusterStatusCommand runningCommand, List<String> stagedCommands) {
+  public SparkClusterStatusManager(SparkClusterStatusCommand runningCommand, List<String> stagedCommands) {
     this.runningCommand = runningCommand;
     this.stagedCommands = stagedCommands;
   }
@@ -64,8 +64,8 @@ public class SparkClusterStatusSystemd implements KubernetesResource {
       return this;
     }
 
-    public SparkClusterStatusSystemd build() {
-      return new SparkClusterStatusSystemd(runningCommand, stagedCommands);
+    public SparkClusterStatusManager build() {
+      return new SparkClusterStatusManager(runningCommand, stagedCommands);
     }
 
   }

@@ -1,8 +1,6 @@
-package tech.stackable.spark.operator.cluster;
+package tech.stackable.spark.operator.cluster.crd;
 
 import tech.stackable.spark.operator.abstractcontroller.crd.CrdClass;
-import tech.stackable.spark.operator.cluster.crd.SparkClusterSpec;
-import tech.stackable.spark.operator.cluster.crd.SparkClusterStatus;
 
 public class SparkCluster extends CrdClass<SparkClusterSpec, SparkClusterStatus> {
 

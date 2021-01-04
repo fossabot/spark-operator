@@ -22,9 +22,10 @@ import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.apiextensions.v1.CustomResourceDefinition;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.server.mock.KubernetesServer;
+import tech.stackable.spark.operator.cluster.crd.SparkCluster;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatus;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusCommand;
-import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusSystemd;
+import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusManager;
 
 @TestInstance(Lifecycle.PER_CLASS)
 class SparkClusterControllerTest {
@@ -77,7 +78,7 @@ class SparkClusterControllerTest {
     SparkClusterStatus clusterStatus =
       new SparkClusterStatus.Builder()
         .withSystemdStatus(
-          new SparkClusterStatusSystemd.Builder()
+          new SparkClusterStatusManager.Builder()
             .withRunningCommands(
               new SparkClusterStatusCommand.Builder()
                 .withCommand(testCommand)
@@ -95,7 +96,7 @@ class SparkClusterControllerTest {
     clusters = controller.getCrdClient().list().getItems();
     assertNotNull(clusters);
     assertEquals(1, clusters.size());
-    assertEquals(testCommand, clusters.get(0).getStatus().getSystemd().getRunningCommand().getCommand());
+    assertEquals(testCommand, clusters.get(0).getStatus().getManager().getRunningCommand().getCommand());
 
     // delete
     controller.getCrdClient().delete(clusters.get(0));
@@ -178,7 +179,7 @@ class SparkClusterControllerTest {
     assertEquals(new HashSet<>(createdWorkerConfigMaps),
       new HashSet<>(retrievedWorkerConfigMaps));
     // delete master config maps
-    controller.deleteConfigMaps(createdMasterPods, cluster, cluster.getSpec().getMaster());
+    controller.deleteConfigMaps(createdMasterPods, cluster);
     retrievedMasterConfigMaps = controller.getConfigMaps(createdMasterPods, cluster);
     assertNotNull(retrievedMasterConfigMaps);
     assertEquals(0, retrievedMasterConfigMaps.size());

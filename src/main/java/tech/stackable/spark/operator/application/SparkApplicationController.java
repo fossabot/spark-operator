@@ -19,6 +19,7 @@ import org.apache.spark.launcher.SparkLauncher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.stackable.spark.operator.abstractcontroller.AbstractCrdController;
+import tech.stackable.spark.operator.application.crd.SparkApplication;
 import tech.stackable.spark.operator.application.crd.SparkApplicationSpec;
 import tech.stackable.spark.operator.cluster.crd.SparkNodeMaster;
 import tech.stackable.spark.operator.common.fabric8.SparkApplicationDoneable;
@@ -164,7 +165,7 @@ public class SparkApplicationController extends AbstractCrdController<SparkAppli
         }
 
         for (EnvVar envVar : container.getEnv()) {
-          if (envVar.getName().equals(SparkConfig.SPARK_MASTER_PORT.getEnv())) {
+          if (envVar.getName().equals(SparkConfig.SPARK_MASTER_PORT.toEnv())) {
             port = envVar.getValue();
           }
         }

@@ -1,4 +1,4 @@
-package tech.stackable.spark.operator.systemd.crd;
+package tech.stackable.spark.operator.cluster.manager.crd;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
@@ -8,12 +8,12 @@ import io.fabric8.kubernetes.api.model.KubernetesResource;
 
 @JsonDeserialize
 @JsonInclude(Include.NON_NULL)
-public class SparkSystemdSpec implements KubernetesResource {
+public class SparkManagerSpec implements KubernetesResource {
 
   private static final long serialVersionUID = -4637042703118011414L;
 
   private String sparkClusterReference;
-  private String systemdAction;
+  private String managerAction;
 
   public String getSparkClusterReference() {
     return sparkClusterReference;
@@ -23,12 +23,12 @@ public class SparkSystemdSpec implements KubernetesResource {
     this.sparkClusterReference = sparkClusterReference;
   }
 
-  public String getSystemdAction() {
-    return systemdAction;
+  public String getManagerAction() {
+    return managerAction;
   }
 
-  public void setSystemdAction(String systemdAction) {
-    this.systemdAction = systemdAction;
+  public void setManagerAction(String managerAction) {
+    this.managerAction = managerAction;
   }
 
 }

@@ -1,7 +1,7 @@
 package tech.stackable.spark.operator.common.fabric8;
 
 import io.fabric8.kubernetes.client.CustomResourceList;
-import tech.stackable.spark.operator.cluster.SparkCluster;
+import tech.stackable.spark.operator.cluster.crd.SparkCluster;
 
 public class SparkClusterList extends CustomResourceList<SparkCluster> {
 
