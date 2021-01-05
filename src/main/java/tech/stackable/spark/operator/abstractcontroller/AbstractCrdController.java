@@ -288,18 +288,9 @@ public abstract class AbstractCrdController<
     }
   }
 
-  /**
-   * Return mixed operation for this crd controller
-   *
-   * @return MixedOperation for crd of this controller
-   */
-  public MixedOperation<Crd, CrdList, CrdDoneable, Resource<Crd, CrdDoneable>> getCrdClient() {
-    return crdClient;
-  }
+  public MixedOperation<Crd, CrdList, CrdDoneable, Resource<Crd, CrdDoneable>> getCrdClient() { return crdClient; }
 
-  protected CustomResourceDefinitionContext getCrdContext() {
-    return crdContext;
-  }
+  public CustomResourceDefinitionContext getCrdContext() { return crdContext; }
 
   protected String getNamespace() {
     return namespace;
@@ -321,7 +312,7 @@ public abstract class AbstractCrdController<
     return crdSharedIndexInformer;
   }
 
-  protected Lister<Crd> getCrdLister() {
+  public Lister<Crd> getCrdLister() {
     return crdLister;
   }
 

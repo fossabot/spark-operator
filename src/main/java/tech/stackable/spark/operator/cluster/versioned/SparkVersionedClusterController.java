@@ -27,14 +27,14 @@ import tech.stackable.spark.operator.common.state.PodState;
 import tech.stackable.spark.operator.common.type.SparkConfig;
 import tech.stackable.spark.operator.common.type.SparkOperatorConfig;
 
-public abstract class SparkVersionedController {
+public abstract class SparkVersionedClusterController {
 
   private final KubernetesClient client;
   private final Lister<Pod> podLister;
   private final Lister<SparkCluster> crdLister;
   private final MixedOperation<SparkCluster, SparkClusterList, SparkClusterDoneable, Resource<SparkCluster, SparkClusterDoneable>> crdClient;
 
-  protected SparkVersionedController(KubernetesClient client, Lister<Pod> podLister, Lister<SparkCluster> crdLister,
+  protected SparkVersionedClusterController(KubernetesClient client, Lister<Pod> podLister, Lister<SparkCluster> crdLister,
     MixedOperation<SparkCluster, SparkClusterList, SparkClusterDoneable, Resource<SparkCluster, SparkClusterDoneable>> crdClient) {
     this.client = client;
     this.podLister = podLister;
@@ -49,7 +49,7 @@ public abstract class SparkVersionedController {
    * @param node    master or worker node
    * @param selector respective selector for node to be created
    *
-   * @return pod create from specs
+   * @return pod created from specs
    */
   public abstract Pod createPod(SparkCluster cluster, SparkNode node, SparkNodeSelector selector);
 
@@ -65,21 +65,39 @@ public abstract class SparkVersionedController {
   public abstract List<ConfigMap> createConfigMaps(List<Pod> pods, SparkCluster cluster, SparkNode node);
 
   /**
+   * Add spark environment variables to string buffer for spark-env.sh configuration
+   *
+   * @param config key
+   * @param value  value
+   *
+   * @return string in format "key=value\n"
+   */
+  protected static String convertToSparkEnv(SparkConfig config, String value) {
+    StringBuilder sb = new StringBuilder();
+    if (value != null && !value.isEmpty()) {
+      sb.append(config.toEnv()).append("=").append(value).append("\n");
+    }
+    return sb.toString();
+  }
+
+  /**
    * Add to string buffer for spark configuration (spark-default.conf) in config map
    *
    * @param sparkConfiguration spark config given in specs
-   * @param sb                 string buffer to add to
-   */
-  public abstract void addToSparkConfig(Set<EnvVar> sparkConfiguration, StringBuffer sb);
-
-  /**
-   * Add spark environment variables to string buffer for spark-env.sh configuration
    *
-   * @param sb     string buffer to add to
-   * @param config key
-   * @param value  value
+   * @return string in format "key value\n"
    */
-  public abstract void addToSparkEnv(StringBuffer sb, SparkConfig config, String value);
+  protected static String convertToSparkConfig(Set<EnvVar> sparkConfiguration) {
+    StringBuilder sb = new StringBuilder();
+    for (EnvVar envVar : sparkConfiguration) {
+      String name = envVar.getName();
+      String value = envVar.getValue();
+      if (name != null && !name.isEmpty() && value != null && !value.isEmpty()) {
+        sb.append(name).append(" ").append(value).append("\n");
+      }
+    }
+    return sb.toString();
+  }
 
   /**
    * Create pods with regard to spec and current state
@@ -154,7 +172,7 @@ public abstract class SparkVersionedController {
    *
    * @return selector corresponding to pod
    */
-  private static Map<Pod, SparkNodeSelector> getSelectorsForPod(List<Pod> pods, SparkNode node) {
+  protected static Map<Pod, SparkNodeSelector> getSelectorsForPod(List<Pod> pods, SparkNode node) {
     Map<Pod, SparkNodeSelector> matchPodOnSelector = new HashMap<>();
     // for each selector
     for (SparkNodeSelector selector : node.getSelectors()) {
@@ -184,7 +202,7 @@ public abstract class SparkVersionedController {
    *
    * @return list of deleted pods
    */
-  public List<Pod> deleteAllPods(List<Pod> pods, SparkCluster cluster, SparkNode node) {
+  public List<Pod> deletePods(List<Pod> pods, SparkCluster cluster, SparkNode node) {
     List<Pod> deletedPods = new ArrayList<>();
     // remember processed pods to delete pods not matching any selector
     List<Pod> processedPods = new ArrayList<>();
@@ -312,7 +330,7 @@ public abstract class SparkVersionedController {
    *
    * @return SparkCluster the pod belongs to, otherwise null
    */
-  private SparkCluster podInCluster(Pod pod, String kind) {
+  public SparkCluster podInCluster(Pod pod, String kind) {
     OwnerReference ownerReference = getControllerOf(pod);
     if (ownerReference == null) {
       return null;
@@ -343,7 +361,7 @@ public abstract class SparkVersionedController {
    *
    * @return pod name
    */
-  private static String createPodName(SparkCluster cluster, SparkNode node, boolean withUUID) {
+  protected static String createPodName(SparkCluster cluster, SparkNode node, boolean withUUID) {
     String podName = cluster.getMetadata().getName() + "-" + node.getNodeType() + "-";
     if (withUUID) {
       podName += UUID.randomUUID().toString().replace("-", "").substring(0, 8);
@@ -352,13 +370,13 @@ public abstract class SparkVersionedController {
   }
 
   /**
-   * Create config map name for pod
+   * Create config map name for given pod
    *
    * @param pod pod with config map
    *
    * @return config map name
    */
-  private static String createConfigMapName(Pod pod) {
+  protected static String createConfigMapName(Pod pod) {
     return pod.getMetadata().getName() + "-cm";
   }
 
@@ -537,5 +555,13 @@ public abstract class SparkVersionedController {
     List<String> output = new ArrayList<>();
     hasMetadata.forEach(n -> output.add(n.getMetadata().getName()));
     return output;
+  }
+
+  public KubernetesClient getClient() {
+    return client;
+  }
+
+  public MixedOperation<SparkCluster, SparkClusterList, SparkClusterDoneable, Resource<SparkCluster, SparkClusterDoneable>> getCrdClient() {
+    return crdClient;
   }
 }

@@ -14,6 +14,8 @@ import tech.stackable.spark.operator.cluster.SparkClusterController;
 import tech.stackable.spark.operator.cluster.statemachine.SparkManagerStateMachine.ManagerState;
 import tech.stackable.spark.operator.cluster.manager.crd.SparkManager;
 import tech.stackable.spark.operator.cluster.manager.SparkManagerController;
+import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterController;
+import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterControllerFactory;
 
 
 import static org.junit.Assert.assertEquals;
@@ -28,6 +30,8 @@ public class SparkManagerStateMachineTest {
   private SparkClusterController clusterController;
   private SparkManagerController managerController;
 
+  private SparkVersionedClusterController controller;
+
   @BeforeAll
   public void init() {
     server = new KubernetesServer(true, true);
@@ -40,6 +44,9 @@ public class SparkManagerStateMachineTest {
 
     managerController = new SparkManagerController(client, Util.MANAGER_CRD_PATH, Util.CLUSTER_CRD_PATH, Util.RESYNC_CYCLE);
     managerController.init();
+
+    controller = SparkVersionedClusterControllerFactory
+        .getSparkVersionedController(Util.IMAGE_VERSION_3_0_1, client, clusterController.getPodLister(), clusterController.getCrdLister(), clusterController.getCrdClient());
   }
 
   @AfterAll
@@ -57,7 +64,7 @@ public class SparkManagerStateMachineTest {
     SparkManager manager = Util.loadSparkManagerExample(client, managerController, Util.MANAGER_EXAMPLE_PATH);
     assertNotNull(manager);
 
-    SparkManagerStateMachine sm = new SparkManagerStateMachine(clusterController);
+    SparkStateMachine sm = clusterController.getManagerStateMachine();
     // start state
     assertEquals(sm.getState(), ManagerState.MANAGER_READY);
 

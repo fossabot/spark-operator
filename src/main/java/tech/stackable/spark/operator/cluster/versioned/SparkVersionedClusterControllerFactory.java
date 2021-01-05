@@ -12,34 +12,35 @@ import tech.stackable.spark.operator.cluster.crd.SparkCluster;
 import tech.stackable.spark.operator.common.fabric8.SparkClusterDoneable;
 import tech.stackable.spark.operator.common.fabric8.SparkClusterList;
 
-public final class SparkVersionedControllerFactory {
+public final class SparkVersionedClusterControllerFactory {
 
-  private SparkVersionedControllerFactory() {}
+  private SparkVersionedClusterControllerFactory() {}
 
-  public static SparkVersionedController getSparkVersionedController(String image, KubernetesClient client, Lister<Pod> podLister, Lister<SparkCluster> crdLister,
+  public static SparkVersionedClusterController getSparkVersionedController(String image, KubernetesClient client, Lister<Pod> podLister, Lister<SparkCluster> crdLister,
     MixedOperation<SparkCluster, SparkClusterList, SparkClusterDoneable, Resource<SparkCluster, SparkClusterDoneable>> crdClient) {
 
-    SparkVersionedController handler = null;
+    SparkVersionedClusterController controller = null;
     SparkSupportedVersion version = SparkSupportedVersion.getVersionType(image, 0);
 
     switch(version) {
+      case V_2_4_7:
+        controller = new SparkVersionedClusterControllerV247(client, podLister, crdLister, crdClient);
+        break;
+      case V_3_0_1:
+        controller = new SparkVersionedClusterControllerV301(client, podLister, crdLister, crdClient);
+        break;
       case NOT_SUPPORTED:
-        break;
-      case V_2_4_0:
-        handler = new SparkVersionedControllerV240(client, podLister, crdLister, crdClient);
-        break;
-      case V_3_0_0:
-        handler = new SparkVersionedControllerV300(client, podLister, crdLister, crdClient);
+      default:
         break;
     }
 
-    return handler;
+    return controller;
   }
 
   public enum SparkSupportedVersion {
     NOT_SUPPORTED(0,0,0),
-    V_2_4_0(2,4,0),
-    V_3_0_0(3,0,0);
+    V_2_4_7(2,4,7),
+    V_3_0_1(3,0,1);
 
     /**
      * major releases may differ in APIs etc. e.g. 2.0.0 -> 3.0.0

@@ -9,37 +9,37 @@ import io.fabric8.kubernetes.api.model.Pod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.stackable.spark.operator.cluster.crd.SparkCluster;
-import tech.stackable.spark.operator.cluster.SparkClusterController;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusCommand;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusManager;
 import tech.stackable.spark.operator.cluster.statemachine.SparkManagerStateMachine.ManagerEvent;
+import tech.stackable.spark.operator.cluster.statemachine.SparkManagerStateMachine.ManagerState;
+import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterController;
 import tech.stackable.spark.operator.common.state.SparkManagerCommand;
 import tech.stackable.spark.operator.common.state.SparkManagerCommandState;
 
-public class SparkManagerStateMachine implements SparkStateMachine<SparkCluster, ManagerEvent> {
+public class SparkManagerStateMachine implements SparkStateMachine<SparkCluster, ManagerEvent, ManagerState> {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SparkManagerStateMachine.class);
 
   private ManagerState state;
-  private final SparkClusterController controller;
+  private SparkVersionedClusterController controller;
 
-  public SparkManagerStateMachine(SparkClusterController controller) {
+  public SparkManagerStateMachine() {
     state = ManagerState.MANAGER_READY;
-    this.controller = controller;
   }
 
   @Override
   public boolean process(SparkCluster crd) {
-    ManagerEvent event = getEvent(crd);
+    ManagerEvent event = transition(crd);
     if (event != ManagerEvent.READY) {
-      transition(crd, event);
+      doAction(crd, event);
       return true;
     }
     return false;
   }
 
   @Override
-  public ManagerEvent getEvent(SparkCluster crd) {
+  public ManagerEvent transition(SparkCluster crd) {
     // no status -> nothing to do
     if (crd.getStatus() == null || crd.getStatus().getManager() == null) {
       return ManagerEvent.READY;
@@ -99,7 +99,7 @@ public class SparkManagerStateMachine implements SparkStateMachine<SparkCluster,
   }
 
   @Override
-  public void transition(SparkCluster crd, ManagerEvent event) {
+  public void doAction(SparkCluster crd, ManagerEvent event) {
     switch (state) {
       case MANAGER_READY:
         break;
@@ -140,7 +140,7 @@ public class SparkManagerStateMachine implements SparkStateMachine<SparkCluster,
           List<Pod> deletedPods = controller.deleteAllPods(crd, crd.getSpec().getMaster(), crd.getSpec().getWorker());
 
           LOGGER.debug("[{}] - deleted {} pod(s): {}",
-            state, deletedPods.size(), SparkClusterController.metadataListToDebug(deletedPods));
+            state, deletedPods.size(), SparkVersionedClusterController.metadataListToDebug(deletedPods));
         }
         break;
       case MANAGER_PODS_DELETED:
@@ -158,6 +158,16 @@ public class SparkManagerStateMachine implements SparkStateMachine<SparkCluster,
         // wait for START
         break;
     }
+  }
+
+  @Override
+  public ManagerState getState() {
+    return state;
+  }
+
+  @Override
+  public void setVersionedController(SparkVersionedClusterController controller) {
+    this.controller = controller;
   }
 
   /**
@@ -264,10 +274,6 @@ public class SparkManagerStateMachine implements SparkStateMachine<SparkCluster,
      * event if stop command arrived
      */
     STOP_COMMAND
-  }
-
-  public ManagerState getState() {
-    return state;
   }
 
 }

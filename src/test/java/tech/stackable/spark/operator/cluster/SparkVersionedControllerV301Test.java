@@ -26,14 +26,17 @@ import tech.stackable.spark.operator.cluster.crd.SparkCluster;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatus;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusCommand;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusManager;
+import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterController;
+import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterControllerFactory;
 
 @TestInstance(Lifecycle.PER_CLASS)
-class SparkClusterControllerTest {
+class SparkVersionedControllerV301Test {
 
   private KubernetesServer server;
   private KubernetesClient client;
 
-  private SparkClusterController controller;
+  private SparkClusterController clusterController;
+  private SparkVersionedClusterController controller;
 
   private static final String SPARK_CLUSTER_KIND = "SparkCluster";
 
@@ -42,8 +45,11 @@ class SparkClusterControllerTest {
     server = new KubernetesServer(true, true);
     server.before();
     client = server.getClient();
-    controller = new SparkClusterController(client, Util.CLUSTER_CRD_PATH, Util.RESYNC_CYCLE);
-    controller.init();
+    clusterController = new SparkClusterController(client, Util.CLUSTER_CRD_PATH, Util.RESYNC_CYCLE);
+    clusterController.init();
+
+    controller = SparkVersionedClusterControllerFactory
+        .getSparkVersionedController(Util.IMAGE_VERSION_3_0_1, client, clusterController.getPodLister(), clusterController.getCrdLister(), clusterController.getCrdClient());
   }
 
   @AfterEach
@@ -54,7 +60,7 @@ class SparkClusterControllerTest {
 
   @Test
   public void testLoadYaml() {
-    List<HasMetadata> crdList = controller.loadYaml(Util.CLUSTER_CRD_PATH);
+    List<HasMetadata> crdList = clusterController.loadYaml(Util.CLUSTER_CRD_PATH);
     assertNotNull(crdList);
     assertEquals(1, crdList.size());
 
@@ -64,12 +70,12 @@ class SparkClusterControllerTest {
 
   @Test
   public void testCrdClientCrud() {
-    SparkCluster cluster = Util.loadSparkClusterExample(client, controller, Util.CLUSTER_EXAMPLE_PATH);
+    SparkCluster cluster = Util.loadSparkClusterExample(client, clusterController, Util.CLUSTER_EXAMPLE_PATH);
     assertNotNull(cluster);
     assertEquals(SPARK_CLUSTER_KIND, cluster.getKind());
 
     // list all spark clusters -> only one loaded
-    List<SparkCluster> clusters = controller.getCrdClient().list().getItems();
+    List<SparkCluster> clusters = clusterController.getCrdClient().list().getItems();
     assertNotNull(clusters);
     assertEquals(1, clusters.size());
 
@@ -89,19 +95,19 @@ class SparkClusterControllerTest {
     cluster.setStatus(clusterStatus);
 
     // update status
-    SparkCluster clusterWithStatus = controller.getCrdClient().updateStatus(cluster);
+    SparkCluster clusterWithStatus = clusterController.getCrdClient().updateStatus(cluster);
     assertNotNull(clusterWithStatus);
 
     // get all spark clusters -> only one created and check for status
-    clusters = controller.getCrdClient().list().getItems();
+    clusters = clusterController.getCrdClient().list().getItems();
     assertNotNull(clusters);
     assertEquals(1, clusters.size());
     assertEquals(testCommand, clusters.get(0).getStatus().getManager().getRunningCommand().getCommand());
 
     // delete
-    controller.getCrdClient().delete(clusters.get(0));
+    clusterController.getCrdClient().delete(clusters.get(0));
     // get all spark clusters -> only one created and check for status
-    clusters = controller.getCrdClient().list().getItems();
+    clusters = clusterController.getCrdClient().list().getItems();
     assertNotNull(clusters);
     assertEquals(0, clusters.size());
   }
@@ -109,7 +115,7 @@ class SparkClusterControllerTest {
   @Test
   public void testPodCrud() {
     // load spark-cluster-example.yaml
-    SparkCluster cluster = Util.loadSparkClusterExample(client, controller, Util.CLUSTER_EXAMPLE_PATH);
+    SparkCluster cluster = Util.loadSparkClusterExample(client, clusterController, Util.CLUSTER_EXAMPLE_PATH);
     assertNotNull(cluster);
     assertEquals(SPARK_CLUSTER_KIND, cluster.getKind());
     // get node instances
@@ -139,7 +145,7 @@ class SparkClusterControllerTest {
 
   @Test
   public void testConfigMapsCrud() {
-    SparkCluster cluster = Util.loadSparkClusterExample(client, controller, Util.CLUSTER_EXAMPLE_PATH);
+    SparkCluster cluster = Util.loadSparkClusterExample(client, clusterController, Util.CLUSTER_EXAMPLE_PATH);
     assertNotNull(cluster);
     assertEquals(SPARK_CLUSTER_KIND, cluster.getKind());
     // get node instances

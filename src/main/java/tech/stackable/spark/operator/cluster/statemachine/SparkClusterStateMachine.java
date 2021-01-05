@@ -11,32 +11,33 @@ import io.fabric8.kubernetes.client.KubernetesClientException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.stackable.spark.operator.cluster.crd.SparkCluster;
-import tech.stackable.spark.operator.cluster.SparkClusterController;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatus;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusImage;
 import tech.stackable.spark.operator.cluster.crd.SparkNode;
 import tech.stackable.spark.operator.cluster.statemachine.SparkClusterStateMachine.ClusterEvent;
+import tech.stackable.spark.operator.cluster.statemachine.SparkClusterStateMachine.ClusterState;
+import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterController;
 import tech.stackable.spark.operator.common.state.PodState;
 import tech.stackable.spark.operator.common.state.SparkManagerCommand;
 import tech.stackable.spark.operator.common.state.SparkManagerCommandState;
 
-public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster, ClusterEvent> {
+public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster, ClusterEvent, ClusterState> {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SparkClusterStateMachine.class);
 
   private ClusterState state;
-  private final SparkClusterController controller;
+  private SparkVersionedClusterController controller;
 
-  public SparkClusterStateMachine(SparkClusterController controller) {
+  public SparkClusterStateMachine() {
     state = ClusterState.READY;
     this.controller = controller;
   }
 
   @Override
   public boolean process(SparkCluster crd) {
-    ClusterEvent event = getEvent(crd);
+    ClusterEvent event = transition(crd);
     if (event != ClusterEvent.WAIT) {
-      transition(crd, event);
+      doAction(crd, event);
       return true;
     }
     return false;
@@ -57,7 +58,7 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
    * READY if cluster is in desired state
    */
   @Override
-  public ClusterEvent getEvent(SparkCluster crd) {
+  public ClusterEvent transition(SparkCluster crd) {
     SparkNode master = crd.getSpec().getMaster();
     SparkNode worker = crd.getSpec().getWorker();
     List<Pod> masterPods = controller.getPodsByNode(crd, master);
@@ -65,16 +66,16 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
 
     // delete excess master pods
     // TODO: leader?
-    if (SparkClusterController.getPodSpecToClusterDifference(master, masterPods) < 0) {
-      List<Pod> deletedPods = controller.deleteAllPods(masterPods, crd, master);
+    if (SparkVersionedClusterController.getPodSpecToClusterDifference(master, masterPods) < 0) {
+      List<Pod> deletedPods = controller.deletePods(masterPods, crd, master);
       LOGGER.debug("[{}] - deleted {} {} pod(s): {}",
-        state.name(), deletedPods.size(), master.getNodeType(), SparkClusterController.metadataListToDebug(deletedPods));
+        state.name(), deletedPods.size(), master.getNodeType(), SparkVersionedClusterController.metadataListToDebug(deletedPods));
     }
     // delete excess worker pods
-    if (SparkClusterController.getPodSpecToClusterDifference(worker, workerPods) < 0) {
-      List<Pod> deletedPods = controller.deleteAllPods(workerPods, crd, worker);
+    if (SparkVersionedClusterController.getPodSpecToClusterDifference(worker, workerPods) < 0) {
+      List<Pod> deletedPods = controller.deletePods(workerPods, crd, worker);
       LOGGER.debug("[{}] - deleted {} {} pod(s): {}",
-        state.name(), deletedPods.size(), worker.getNodeType(), SparkClusterController.metadataListToDebug(deletedPods));
+        state.name(), deletedPods.size(), worker.getNodeType(), SparkVersionedClusterController.metadataListToDebug(deletedPods));
     }
 
     // run for initial state
@@ -92,35 +93,35 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
       event = ClusterEvent.INITIAL;
     }
     // masters missing
-    else if (SparkClusterController.getPodSpecToClusterDifference(master, masterPods) > 0) {
+    else if (SparkVersionedClusterController.getPodSpecToClusterDifference(master, masterPods) > 0) {
       event = ClusterEvent.CREATE_MASTER;
-    } else if (SparkClusterController.getHostNames(masterPods).isEmpty()) {
+    } else if (SparkVersionedClusterController.getHostNames(masterPods).isEmpty()) {
       // got host name?
       // TODO who is leader?
       event = ClusterEvent.WAIT;
     }
     // config maps not written yet
-    else if (SparkClusterController.getHostNames(masterPods).size() != 0
+    else if (SparkVersionedClusterController.getHostNames(masterPods).size() != 0
       && controller.getConfigMaps(masterPods, crd).size() != masterPods.size()) {
       // TODO who is leader?
       event = ClusterEvent.WAIT_MASTER_HOST_NAME;
     }
     // not all masters running
-    else if (!SparkClusterController.allPodsHaveStatus(masterPods, PodState.RUNNING)) {
+    else if (!SparkVersionedClusterController.allPodsHaveStatus(masterPods, PodState.RUNNING)) {
       event = ClusterEvent.WAIT_MASTER_RUNNING;
     }
     // masters running - workers missing
-    else if (SparkClusterController.getPodSpecToClusterDifference(worker, workerPods) > 0) {
+    else if (SparkVersionedClusterController.getPodSpecToClusterDifference(worker, workerPods) > 0) {
       event = ClusterEvent.CREATE_WORKER;
     }
     // config maps not written yet
-    else if (SparkClusterController.getHostNames(workerPods).size() != 0
+    else if (SparkVersionedClusterController.getHostNames(workerPods).size() != 0
       && controller.getConfigMaps(workerPods, crd).size() != workerPods.size()) {
       // TODO who is leader?
       event = ClusterEvent.WAIT_WORKER_HOST_NAME;
     }
     // all masters running - not all workers running
-    else if (!SparkClusterController.allPodsHaveStatus(workerPods, PodState.RUNNING)) {
+    else if (!SparkVersionedClusterController.allPodsHaveStatus(workerPods, PodState.RUNNING)) {
       event = ClusterEvent.WAIT_WORKER_RUNNING;
     }
 
@@ -148,7 +149,7 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
    * @param event given event
    */
   @Override
-  public void transition(SparkCluster crd, ClusterEvent event) {
+  public void doAction(SparkCluster crd, ClusterEvent event) {
     try {
       switch (state) {
         case INITIAL:
@@ -168,7 +169,7 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
           List<ConfigMap> deletedConfigMaps = controller.deleteAllClusterConfigMaps(crd);
 
           LOGGER.debug("[{}] - deleted {} configMap(s): {}",
-            state.name(), deletedConfigMaps.size(), SparkClusterController.metadataListToDebug(deletedConfigMaps));
+            state.name(), deletedConfigMaps.size(), SparkVersionedClusterController.metadataListToDebug(deletedConfigMaps));
           break;
         case CREATE_MASTER: {
           SparkNode master = crd.getSpec().getMaster();
@@ -179,20 +180,20 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
           masterPods = controller.createPods(masterPods, crd, master);
 
           LOGGER.debug("[{}] - created {} {} pod(s): {}",
-            state.name(), masterPods.size(), master.getNodeType(), SparkClusterController.metadataListToDebug(masterPods));
+            state.name(), masterPods.size(), master.getNodeType(), SparkVersionedClusterController.metadataListToDebug(masterPods));
           break;
         }
         case WAIT_MASTER_HOST_NAME: {
           SparkNode master = crd.getSpec().getMaster();
           List<Pod> masterPods = controller.getPodsByNode(crd, master);
-          List<String> masterHostNames = SparkClusterController.getHostNames(masterPods);
+          List<String> masterHostNames = SparkVersionedClusterController.getHostNames(masterPods);
           if (masterHostNames.size() != 0) {
             // TODO: actual master?
             LOGGER.debug("[{}] - got host name: {}", state.name(), masterHostNames.get(0));
             // create master config map when nodename received
             List<ConfigMap> createdConfigMaps = controller.createConfigMaps(masterPods, crd, master);
             LOGGER.debug("[{}] - created {} configMap(s): {}",
-              state.name(), createdConfigMaps.size(), SparkClusterController.metadataListToDebug(createdConfigMaps));
+              state.name(), createdConfigMaps.size(), SparkVersionedClusterController.metadataListToDebug(createdConfigMaps));
           }
           break;
         }
@@ -205,27 +206,27 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
           List<Pod> workerPods = controller.getPodsByNode(crd, worker);
 
           // check host name
-          List<String> masterNodeNames = SparkClusterController.getHostNames(masterPods);
+          List<String> masterNodeNames = SparkVersionedClusterController.getHostNames(masterPods);
 
           if (masterNodeNames.isEmpty()) {
             LOGGER.warn("[{}] - no master node names available!", state.name());
             break;
           }
           // adapt command in workers
-          String masterUrl = SparkClusterController.adaptWorkerCommand(crd, masterNodeNames);
+          String masterUrl = SparkVersionedClusterController.adaptWorkerCommand(crd, masterNodeNames);
           LOGGER.debug("[{}] - set worker MASTER_URL to: {}", state.name(), masterUrl);
 
           // spin up workers
           workerPods = controller.createPods(workerPods, crd, worker);
 
           LOGGER.debug("[{}] - created {} {} pod(s): {}",
-            state.name(), workerPods.size(), worker.getNodeType(), SparkClusterController.metadataListToDebug(workerPods));
+            state.name(), workerPods.size(), worker.getNodeType(), SparkVersionedClusterController.metadataListToDebug(workerPods));
           break;
         }
         case WAIT_WORKER_HOST_NAME:
           SparkNode worker = crd.getSpec().getWorker();
           List<Pod> workerPods = controller.getPodsByNode(crd, worker);
-          List<String> workerHostNames = SparkClusterController.getHostNames(workerPods);
+          List<String> workerHostNames = SparkVersionedClusterController.getHostNames(workerPods);
           if (workerHostNames.size() != 0) {
             // TODO: actual master?
             LOGGER.debug("[{}] - got host name: {}", state.name(), workerHostNames.get(0));
@@ -233,7 +234,7 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
             List<ConfigMap> createdConfigMaps = controller.createConfigMaps(workerPods, crd, worker);
 
             LOGGER.debug("[{}] - created {} configMap(s): {}",
-              state.name(), createdConfigMaps.size(), SparkClusterController.metadataListToDebug(createdConfigMaps));
+              state.name(), createdConfigMaps.size(), SparkVersionedClusterController.metadataListToDebug(createdConfigMaps));
           }
           break;
         case WAIT_WORKER_RUNNING:
@@ -244,6 +245,16 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
     } catch (KubernetesClientException ex) {
       LOGGER.warn("Received outdated object: {}", ex.getMessage());
     }
+  }
+
+  @Override
+  public ClusterState getState() {
+    return state;
+  }
+
+  @Override
+  public void setVersionedController(SparkVersionedClusterController controller) {
+    this.controller = controller;
   }
 
   /**
@@ -419,10 +430,6 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
      * Nothing to do
      */
     WAIT
-  }
-
-  public ClusterState getState() {
-    return state;
   }
 
 }

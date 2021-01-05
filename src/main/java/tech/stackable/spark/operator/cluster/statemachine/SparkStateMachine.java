@@ -1,6 +1,8 @@
 package tech.stackable.spark.operator.cluster.statemachine;
 
-public interface SparkStateMachine<CrdClass, Event> {
+import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterController;
+
+public interface SparkStateMachine<CrdClass, Event, State> {
 
   /**
    * process state machine: get events and run transitions
@@ -18,7 +20,7 @@ public interface SparkStateMachine<CrdClass, Event> {
    *
    * @return event
    */
-  Event getEvent(CrdClass crd);
+  Event transition(CrdClass crd);
 
   /**
    * Apply transitions through the state machine depending on incoming events
@@ -26,5 +28,17 @@ public interface SparkStateMachine<CrdClass, Event> {
    * @param crd   crd class
    * @param event for the transition
    */
-  void transition(CrdClass crd, Event event);
+  void doAction(CrdClass crd, Event event);
+
+  /**
+   * Retrieve the current state of the state machine
+   * @return current state of the state machine
+   */
+  State getState();
+
+  /**
+   * Set the versioned controller required for the spark cluster
+   * @param controller
+   */
+  void setVersionedController(SparkVersionedClusterController controller);
 }
