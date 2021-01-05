@@ -85,6 +85,10 @@ public abstract class AbstractCrdController<
   @SuppressWarnings("unchecked")
   public void init() {
     List<HasMetadata> crdMetadata = loadYaml(crdPath);
+    if(crdMetadata == null) {
+      LOGGER.error("Could not load controller CRD in {}", crdPath);
+      // TODO: system exit?
+    }
 
     informerFactory = client.informers();
 
