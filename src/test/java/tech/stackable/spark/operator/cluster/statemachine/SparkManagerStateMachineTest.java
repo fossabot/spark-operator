@@ -2,6 +2,7 @@ package tech.stackable.spark.operator.cluster.statemachine;
 
 import common.Util;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -11,14 +12,14 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.server.mock.KubernetesServer;
 import tech.stackable.spark.operator.cluster.crd.SparkCluster;
 import tech.stackable.spark.operator.cluster.SparkClusterController;
+import tech.stackable.spark.operator.cluster.statemachine.SparkManagerStateMachine.ManagerEvent;
 import tech.stackable.spark.operator.cluster.statemachine.SparkManagerStateMachine.ManagerState;
 import tech.stackable.spark.operator.cluster.manager.crd.SparkManager;
 import tech.stackable.spark.operator.cluster.manager.SparkManagerController;
 import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterController;
 import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterControllerFactory;
+import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterControllerFactory.SparkVersionMatchLevel;
 
-
-import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @TestInstance(Lifecycle.PER_CLASS)
@@ -46,7 +47,7 @@ public class SparkManagerStateMachineTest {
     managerController.init();
 
     controller = SparkVersionedClusterControllerFactory
-        .getSparkVersionedController(Util.IMAGE_VERSION_3_0_1, client, clusterController.getPodLister(), clusterController.getCrdLister(), clusterController.getCrdClient());
+        .getSparkVersionedController(Util.IMAGE_VERSION_3_0_1, SparkVersionMatchLevel.MINOR, client, clusterController.getPodLister(), clusterController.getCrdLister(), clusterController.getCrdClient());
   }
 
   @AfterAll
@@ -64,13 +65,13 @@ public class SparkManagerStateMachineTest {
     SparkManager manager = Util.loadSparkManagerExample(client, managerController, Util.MANAGER_EXAMPLE_PATH);
     assertNotNull(manager);
 
-    SparkStateMachine sm = clusterController.getManagerStateMachine();
+    SparkStateMachine<SparkCluster, ManagerEvent, ManagerState> sm = clusterController.getManagerStateMachine();
     // start state
-    assertEquals(sm.getState(), ManagerState.MANAGER_READY);
+    Assertions.assertEquals(sm.getState(), ManagerState.MANAGER_READY);
 
     // activate manager state machine in cluster
     managerController.process(manager);
-    assertEquals(ManagerState.MANAGER_READY, sm.getState());
+    Assertions.assertEquals(ManagerState.MANAGER_READY, sm.getState());
 
     clusterController.process(cluster);
 

@@ -28,6 +28,7 @@ import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusCommand;
 import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusManager;
 import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterController;
 import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterControllerFactory;
+import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterControllerFactory.SparkVersionMatchLevel;
 
 @TestInstance(Lifecycle.PER_CLASS)
 class SparkVersionedControllerV301Test {
@@ -49,7 +50,7 @@ class SparkVersionedControllerV301Test {
     clusterController.init();
 
     controller = SparkVersionedClusterControllerFactory
-        .getSparkVersionedController(Util.IMAGE_VERSION_3_0_1, client, clusterController.getPodLister(), clusterController.getCrdLister(), clusterController.getCrdClient());
+        .getSparkVersionedController(Util.IMAGE_VERSION_3_0_1, SparkVersionMatchLevel.MINOR, client, clusterController.getPodLister(), clusterController.getCrdLister(), clusterController.getCrdClient());
   }
 
   @AfterEach

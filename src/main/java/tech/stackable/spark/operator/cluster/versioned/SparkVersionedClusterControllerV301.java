@@ -39,7 +39,7 @@ public class SparkVersionedClusterControllerV301 extends SparkVersionedClusterCo
 
   @Override
   public Pod createPod(SparkCluster cluster, SparkNode node, SparkNodeSelector selector) {
-    String podName = createPodName(cluster, node, true);
+    String podName = SparkVersionedClusterControllerHelper.createPodName(cluster, node, true);
     String cmName = podName + "-cm";
     ConfigMapVolumeSource cms = new ConfigMapVolumeSourceBuilder().withName(cmName).build();
     Volume vol = new VolumeBuilder().withName(cmName).withConfigMap(cms).build();
@@ -82,10 +82,10 @@ public class SparkVersionedClusterControllerV301 extends SparkVersionedClusterCo
   public List<ConfigMap> createConfigMaps(List<Pod> pods, SparkCluster cluster, SparkNode node) {
     List<ConfigMap> createdConfigMaps = new ArrayList<>();
     // match selector
-    Map<Pod, SparkNodeSelector> matchPodToSelectors = getSelectorsForPod(pods, node);
+    Map<Pod, SparkNodeSelector> matchPodToSelectors = SparkVersionedClusterControllerHelper.getSelectorsForPod(pods, node);
 
     for (Entry<Pod, SparkNodeSelector> entry : matchPodToSelectors.entrySet()) {
-      String cmName = createConfigMapName(entry.getKey());
+      String cmName = SparkVersionedClusterControllerHelper.createConfigMapName(entry.getKey());
 
       Resource<ConfigMap, DoneableConfigMap> configMapResource = getClient()
         .configMaps()
@@ -94,12 +94,12 @@ public class SparkVersionedClusterControllerV301 extends SparkVersionedClusterCo
       //
       // create entry for spark-env.sh
       //
-      StringBuffer sbEnv = new StringBuffer();
+      StringBuilder sbEnv = new StringBuilder();
       // only worker has required information to be set
       // all known data in yaml and pojo for worker
       if (node.getNodeType() == SparkNodeType.WORKER) {
-        sbEnv.append(convertToSparkEnv(SparkConfig.SPARK_WORKER_CORES, entry.getValue().getCores()));
-        sbEnv.append(convertToSparkEnv(SparkConfig.SPARK_WORKER_MEMORY, entry.getValue().getMemory()));
+        sbEnv.append(SparkVersionedClusterControllerHelper.convertToSparkEnv(SparkConfig.SPARK_WORKER_CORES, entry.getValue().getCores()));
+        sbEnv.append(SparkVersionedClusterControllerHelper.convertToSparkEnv(SparkConfig.SPARK_WORKER_MEMORY, entry.getValue().getMemory()));
       }
 
       Map<String, String> cmFiles = new HashMap<>();
@@ -113,8 +113,8 @@ public class SparkVersionedClusterControllerV301 extends SparkVersionedClusterCo
         node.getSparkConfiguration().add(new EnvVar(SparkConfig.SPARK_AUTHENTICATE.getConfig(), "true", null));
         node.getSparkConfiguration().add(new EnvVar(SparkConfig.SPARK_AUTHENTICATE_SECRET.getConfig(), secret, null));
       }
-      StringBuffer sbConf = new StringBuffer();
-      sbConf.append(convertToSparkConfig(node.getSparkConfiguration()));
+      StringBuilder sbConf = new StringBuilder();
+      sbConf.append(SparkVersionedClusterControllerHelper.convertToSparkConfig(node.getSparkConfiguration()));
 
       cmFiles.put("spark-defaults.conf", sbConf.toString());
       //

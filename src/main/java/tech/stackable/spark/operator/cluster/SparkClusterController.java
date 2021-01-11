@@ -20,6 +20,7 @@ import tech.stackable.spark.operator.cluster.statemachine.SparkStateMachine;
 import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterController;
 import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterControllerFactory;
 import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterControllerFactory.SparkSupportedVersion;
+import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterControllerFactory.SparkVersionMatchLevel;
 import tech.stackable.spark.operator.common.fabric8.SparkClusterDoneable;
 import tech.stackable.spark.operator.common.fabric8.SparkClusterList;
 
@@ -72,17 +73,16 @@ public class SparkClusterController extends AbstractCrdController<SparkCluster, 
 
   @Override
   public void process(SparkCluster crd) {
-    // TODO: check which controller version to use
-    SparkSupportedVersion receivedVersion = SparkSupportedVersion.getVersionType(crd.getSpec().getImage(),2);
+    SparkSupportedVersion receivedVersion = SparkSupportedVersion.matchVersion(crd.getSpec().getImage(), SparkVersionMatchLevel.MINOR);
     if(currentVersion != receivedVersion && receivedVersion != SparkSupportedVersion.NOT_SUPPORTED) {
       currentVersion = receivedVersion;
       versionedController = SparkVersionedClusterControllerFactory
-          .getSparkVersionedController(crd.getSpec().getImage(), getClient(), podLister, getCrdLister(), getCrdClient());
+          .getSparkVersionedController(crd.getSpec().getImage(), SparkVersionMatchLevel.MINOR,  getClient(), podLister, getCrdLister(), getCrdClient());
       // adapt all state machines
       managerStateMachine.setVersionedController(versionedController);
       clusterStateMachine.setVersionedController(versionedController);
 
-      LOGGER.trace("Switch controller to version: {}", receivedVersion.name());
+      LOGGER.debug("Using controller for version: {}", receivedVersion.name());
     }
 
     // TODO: except stopped?

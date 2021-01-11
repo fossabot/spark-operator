@@ -14,6 +14,7 @@ import tech.stackable.spark.operator.cluster.crd.SparkClusterStatusManager;
 import tech.stackable.spark.operator.cluster.statemachine.SparkManagerStateMachine.ManagerEvent;
 import tech.stackable.spark.operator.cluster.statemachine.SparkManagerStateMachine.ManagerState;
 import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterController;
+import tech.stackable.spark.operator.cluster.versioned.SparkVersionedClusterControllerHelper;
 import tech.stackable.spark.operator.common.state.SparkManagerCommand;
 import tech.stackable.spark.operator.common.state.SparkManagerCommandState;
 
@@ -140,7 +141,7 @@ public class SparkManagerStateMachine implements SparkStateMachine<SparkCluster,
           List<Pod> deletedPods = controller.deleteAllPods(crd, crd.getSpec().getMaster(), crd.getSpec().getWorker());
 
           LOGGER.debug("[{}] - deleted {} pod(s): {}",
-            state, deletedPods.size(), SparkVersionedClusterController.metadataListToDebug(deletedPods));
+            state, deletedPods.size(), SparkVersionedClusterControllerHelper.metadataListToDebug(deletedPods));
         }
         break;
       case MANAGER_PODS_DELETED:
