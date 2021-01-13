@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Map.Entry;
 import java.util.UUID;
 
 import io.fabric8.kubernetes.api.model.EnvVar;
@@ -15,7 +15,6 @@ import tech.stackable.spark.operator.cluster.crd.SparkCluster;
 import tech.stackable.spark.operator.cluster.crd.SparkNode;
 import tech.stackable.spark.operator.cluster.crd.SparkNodeSelector;
 import tech.stackable.spark.operator.common.state.PodState;
-import tech.stackable.spark.operator.common.type.SparkConfig;
 import tech.stackable.spark.operator.common.type.SparkOperatorConfig;
 
 public final class SparkVersionedClusterControllerHelper {
@@ -82,35 +81,38 @@ public final class SparkVersionedClusterControllerHelper {
   }
 
   /**
-   * Add spark environment variables to string buffer for spark-env.sh configuration
+   * Convert property -> value map into string for spark-default.conf
    *
-   * @param config key
-   * @param value  value
+   * @param configProperties spark config properties as key value map
    *
-   * @return string in format "key=value\n"
+   * @return string in format "key value\n"
    */
-  public static String convertToSparkEnv(SparkConfig config, String value) {
+  public static String convertToSparkConfig(Map<String,String> configProperties) {
     StringBuilder sb = new StringBuilder();
-    if (value != null && !value.isEmpty()) {
-      sb.append(config.toEnv()).append("=").append(value).append("\n");
+    for (Entry<String,String> entry : configProperties.entrySet()) {
+      String name = entry.getKey();
+      String value = entry.getValue();
+      if (name != null && !name.isEmpty() && value != null && !value.isEmpty()) {
+        sb.append(name).append(" ").append(value).append("\n");
+      }
     }
     return sb.toString();
   }
 
   /**
-   * Add to string buffer for spark configuration (spark-default.conf) in config map
+   * Convert property -> value map into string for spark-env.sh
    *
-   * @param sparkConfiguration spark config given in specs
+   * @param envVariables spark env variables as key value map
    *
-   * @return string in format "key value\n"
+   * @return string in format "key=value\n"
    */
-  public static String convertToSparkConfig(Set<EnvVar> sparkConfiguration) {
+  public static String convertToSparkEnv(Map<String,String> envVariables) {
     StringBuilder sb = new StringBuilder();
-    for (EnvVar envVar : sparkConfiguration) {
-      String name = envVar.getName();
-      String value = envVar.getValue();
+    for (Entry<String,String> entry : envVariables.entrySet()) {
+      String name = entry.getKey();
+      String value = entry.getValue();
       if (name != null && !name.isEmpty() && value != null && !value.isEmpty()) {
-        sb.append(name).append(" ").append(value).append("\n");
+        sb.append(name).append("=").append(value).append("\n");
       }
     }
     return sb.toString();
@@ -125,6 +127,17 @@ public final class SparkVersionedClusterControllerHelper {
    */
   public static String createConfigMapName(Pod pod) {
     return pod.getMetadata().getName() + "-cm";
+  }
+
+  /**
+   * Create config map name for given pod
+   *
+   * @param podName created pod name
+   *
+   * @return config map name
+   */
+  public static String createConfigMapName(String podName) {
+    return podName + "-cm";
   }
 
   /**

@@ -1,137 +1,76 @@
 package tech.stackable.spark.operator.cluster.versioned;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
-import io.fabric8.kubernetes.api.model.ConfigMap;
-import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
-import io.fabric8.kubernetes.api.model.ConfigMapVolumeSource;
-import io.fabric8.kubernetes.api.model.ConfigMapVolumeSourceBuilder;
-import io.fabric8.kubernetes.api.model.DoneableConfigMap;
-import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.Pod;
-import io.fabric8.kubernetes.api.model.PodBuilder;
-import io.fabric8.kubernetes.api.model.Volume;
-import io.fabric8.kubernetes.api.model.VolumeBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.informers.cache.Lister;
 import tech.stackable.spark.operator.cluster.crd.SparkCluster;
-import tech.stackable.spark.operator.cluster.crd.SparkNode;
-import tech.stackable.spark.operator.cluster.crd.SparkNode.SparkNodeType;
 import tech.stackable.spark.operator.cluster.crd.SparkNodeSelector;
+import tech.stackable.spark.operator.cluster.versioned.config.SparkConfigVersion;
 import tech.stackable.spark.operator.common.fabric8.SparkClusterDoneable;
 import tech.stackable.spark.operator.common.fabric8.SparkClusterList;
 import tech.stackable.spark.operator.common.type.SparkConfig;
-import tech.stackable.spark.operator.common.type.SparkOperatorConfig;
 
 public class SparkVersionedClusterControllerV301 extends SparkVersionedClusterController {
 
-  protected SparkVersionedClusterControllerV301(KubernetesClient client, Lister<Pod> podLister, Lister<SparkCluster> crdLister,
+  protected SparkVersionedClusterControllerV301(SparkConfigVersion version, KubernetesClient client, Lister<Pod> podLister, Lister<SparkCluster> crdLister,
     MixedOperation<SparkCluster, SparkClusterList, SparkClusterDoneable, Resource<SparkCluster, SparkClusterDoneable>> crdClient) {
-    super(client, podLister, crdLister, crdClient);
+    super(version, client, podLister, crdLister, crdClient);
   }
 
   @Override
-  public Pod createPod(SparkCluster cluster, SparkNode node, SparkNodeSelector selector) {
-    String podName = SparkVersionedClusterControllerHelper.createPodName(cluster, node, true);
-    String cmName = podName + "-cm";
-    ConfigMapVolumeSource cms = new ConfigMapVolumeSourceBuilder().withName(cmName).build();
-    Volume vol = new VolumeBuilder().withName(cmName).withConfigMap(cms).build();
+  protected void createMasterConfigMaps(Map<String,String> configProperties, Map<String,String> envVariables, SparkCluster cluster, SparkNodeSelector selector) {
+    // add to config properties
 
-    return new PodBuilder()
-      .withNewMetadata()
-        .withName(podName)
-        .withNamespace(cluster.getMetadata().getNamespace())
-        .withLabels(Collections.singletonMap(SparkOperatorConfig.POD_SELECTOR_NAME.toString(), selector.getName()))
-        .addNewOwnerReference()
-          .withController(true)
-          .withApiVersion(cluster.getApiVersion())
-          .withKind(cluster.getKind())
-          .withName(cluster.getMetadata().getName())
-          .withNewUid(cluster.getMetadata().getUid())
-        .endOwnerReference()
-      .endMetadata()
-      .withNewSpec()
-        .withTolerations(cluster.getSpec().getTolerations())
-        // TODO: check for null / zero elements
-        .withNodeSelector(selector.getMatchLabels())
-        .withVolumes(vol)
-          .addNewContainer()
-          //TODO: no ":" etc in withName
-          .withName("spark-3-0-1")
-          .withImage(cluster.getSpec().getImage())
-          .withCommand(node.getCommands())
-          .withArgs(node.getArgs())
-          .addNewVolumeMount()
-          .withMountPath(SparkOperatorConfig.POD_CONF_VOLUME_MOUNT_PATH.toString())
-          .withName(cmName)
-          .endVolumeMount()
-          .withEnv(List.copyOf(node.getEnv()))
-        .endContainer()
-      .endSpec()
-      .build();
+    // add to env variables
   }
 
   @Override
-  public List<ConfigMap> createConfigMaps(List<Pod> pods, SparkCluster cluster, SparkNode node) {
-    List<ConfigMap> createdConfigMaps = new ArrayList<>();
-    // match selector
-    Map<Pod, SparkNodeSelector> matchPodToSelectors = SparkVersionedClusterControllerHelper.getSelectorsForPod(pods, node);
+  protected void createWorkerConfigMaps(Map<String,String> configProperties, Map<String,String> envVariables, SparkCluster cluster, SparkNodeSelector selector) {
+    // add to config properties
+    configProperties.put(SparkConfig.SPARK_WORKER_CORES.getConfig(), selector.getCores());
+    configProperties.put(SparkConfig.SPARK_WORKER_MEMORY.getConfig(), selector.getMemory());
 
-    for (Entry<Pod, SparkNodeSelector> entry : matchPodToSelectors.entrySet()) {
-      String cmName = SparkVersionedClusterControllerHelper.createConfigMapName(entry.getKey());
+    // add to env variables
+  }
 
-      Resource<ConfigMap, DoneableConfigMap> configMapResource = getClient()
-        .configMaps()
-        .inNamespace(cluster.getMetadata().getNamespace())
-        .withName(cmName);
-      //
-      // create entry for spark-env.sh
-      //
-      StringBuilder sbEnv = new StringBuilder();
-      // only worker has required information to be set
-      // all known data in yaml and pojo for worker
-      if (node.getNodeType() == SparkNodeType.WORKER) {
-        sbEnv.append(SparkVersionedClusterControllerHelper.convertToSparkEnv(SparkConfig.SPARK_WORKER_CORES, entry.getValue().getCores()));
-        sbEnv.append(SparkVersionedClusterControllerHelper.convertToSparkEnv(SparkConfig.SPARK_WORKER_MEMORY, entry.getValue().getMemory()));
-      }
+  @Override
+  protected void createHistoryServerConfigMaps(Map<String,String> configProperties, Map<String,String> envVariables, SparkCluster cluster, SparkNodeSelector selector) {
+    // add to config properties
+    // add to env variables
+  }
 
-      Map<String, String> cmFiles = new HashMap<>();
-      cmFiles.put("spark-env.sh", sbEnv.toString());
-      //
-      // create entry for spark-defaults.conf
-      //
-      // add secret
-      String secret = cluster.getSpec().getSecret();
-      if (secret != null && !secret.isEmpty()) {
-        node.getSparkConfiguration().add(new EnvVar(SparkConfig.SPARK_AUTHENTICATE.getConfig(), "true", null));
-        node.getSparkConfiguration().add(new EnvVar(SparkConfig.SPARK_AUTHENTICATE_SECRET.getConfig(), secret, null));
-      }
-      StringBuilder sbConf = new StringBuilder();
-      sbConf.append(SparkVersionedClusterControllerHelper.convertToSparkConfig(node.getSparkConfiguration()));
-
-      cmFiles.put("spark-defaults.conf", sbConf.toString());
-      //
-      // create config map
-      //
-      ConfigMap created = configMapResource.createOrReplace(new ConfigMapBuilder()
-        .withNewMetadata()
-        .withName(cmName)
-        .endMetadata()
-        .addToData(cmFiles)
-        .build());
-      if (created != null) {
-        createdConfigMaps.add(created);
-      }
+  @Override
+  protected Map<String,String> createCommonConfigProperties(SparkCluster cluster) {
+    Map<String,String> configProperties = new HashMap<>();
+    // secret?
+    String secret = cluster.getSpec().getSecret();
+    if(secret != null && !secret.isEmpty()) {
+      configProperties.put(SparkConfig.SPARK_AUTHENTICATE.getConfig(), "true");
+      configProperties.put(SparkConfig.SPARK_AUTHENTICATE_SECRET.getConfig(), secret);
     }
 
-    return createdConfigMaps;
+    // TODO: ssl?
+
+    // TODO: history server logging?
+
+    return configProperties;
+  }
+
+  @Override
+  protected Map<String,String> createCommonEnvVariables(SparkCluster cluster) {
+    Map<String,String> envVarsProperties = new HashMap<>();
+
+    // SPARK_NO_DAEMONIZE
+    envVarsProperties.put(SparkConfig.SPARK_NO_DAEMONIZE.name(), "true");
+    // SPARK_CONF_DIR
+    envVarsProperties.put(SparkConfig.SPARK_CONF_DIR.name(), "{{configroot}}/conf");
+
+    return envVarsProperties;
   }
 
 }

@@ -27,10 +27,10 @@ public final class SparkVersionedClusterControllerFactory {
 
     switch(version) {
       case V_2_4_7:
-        controller = new SparkVersionedClusterControllerV247(client, podLister, crdLister, crdClient);
+        controller = new SparkVersionedClusterControllerV247(version.getVersion(), client, podLister, crdLister, crdClient);
         break;
       case V_3_0_1:
-        controller = new SparkVersionedClusterControllerV301(client, podLister, crdLister, crdClient);
+        controller = new SparkVersionedClusterControllerV301(version.getVersion(), client, podLister, crdLister, crdClient);
         break;
       case NOT_SUPPORTED:
       default:
@@ -77,6 +77,7 @@ public final class SparkVersionedClusterControllerFactory {
         for(int i = 0; i <= versionMatchLevel.getLevel(); i++) {
           if(version[i] != toCompareVersion[i]) {
             match = false;
+            break;
           }
         }
         // found version match
@@ -110,7 +111,7 @@ public final class SparkVersionedClusterControllerFactory {
      */
     PATCH(2);
 
-    private int level;
+    private final int level;
 
     SparkVersionMatchLevel(int level) {
       this.level = level;

@@ -10,7 +10,6 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.KubernetesResource;
-import io.fabric8.kubernetes.api.model.Toleration;
 
 @JsonDeserialize
 public class SparkNode implements KubernetesResource {
@@ -26,8 +25,7 @@ public class SparkNode implements KubernetesResource {
   private Set<EnvVar> sparkConfiguration = new HashSet<>();
   private Set<EnvVar> env = new HashSet<>();
 
-  public SparkNode() {
-  }
+  public SparkNode() {}
 
   public SparkNode(
     List<SparkNodeSelector> selectors, List<String> commands,
@@ -177,7 +175,7 @@ public class SparkNode implements KubernetesResource {
     WORKER("worker"),
     HISTORY_SERVER("historyserver");
 
-    final String type;
+    private final String type;
 
     SparkNodeType(String type) {
       this.type = type;

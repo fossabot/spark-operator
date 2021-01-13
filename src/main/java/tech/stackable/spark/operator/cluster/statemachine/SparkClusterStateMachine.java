@@ -51,10 +51,11 @@ public class SparkClusterStateMachine implements SparkStateMachine<SparkCluster,
    * @return ClusterEvent:
    * INITIAL if no status found or command running which is not stop
    * CREATE_MASTER if #masters < spec;
-   * WAIT_HOST_NAME if masters created but not running
+   * WAIT_MASTER_HOST_NAME if masters created but not running
    * WAIT_MASTER_RUNNING if host names received and config map written
    * CREATE_WORKER if #workers < spec;
-   * WAIT_WORKER_RUNNING if workers created but not running yet
+   * WAIT_WORKER_HOST_NAME if workers created but not running
+   * WAIT_WORKER_RUNNING if host names received and config map written
    * READY if cluster is in desired state
    */
   @Override

@@ -130,7 +130,9 @@ public enum SparkConfig {
 
   SPARK_HISTORY_FS_CLEANER_ENABLED("spark.history.fs.cleaner.enabled"),
 
-  SPARK_HISTORY_FS_CLEANER_INTERVAL("spark.history.fs.cleaner.interval");
+  SPARK_HISTORY_FS_CLEANER_INTERVAL("spark.history.fs.cleaner.interval"),
+
+  SPARK_NO_DAEMONIZE("spark.no.daemonize");
 
 
 

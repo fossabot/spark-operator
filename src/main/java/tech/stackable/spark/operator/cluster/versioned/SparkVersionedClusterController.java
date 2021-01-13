@@ -1,14 +1,25 @@
 package tech.stackable.spark.operator.cluster.versioned;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
+import io.fabric8.kubernetes.api.model.Container;
+import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.DoneableConfigMap;
+import io.fabric8.kubernetes.api.model.ObjectMeta;
+import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.PodSpec;
+import io.fabric8.kubernetes.api.model.PodSpecBuilder;
+import io.fabric8.kubernetes.api.model.VolumeMount;
+import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
@@ -16,22 +27,133 @@ import io.fabric8.kubernetes.client.informers.cache.Lister;
 import tech.stackable.spark.operator.cluster.crd.SparkCluster;
 import tech.stackable.spark.operator.cluster.crd.SparkNode;
 import tech.stackable.spark.operator.cluster.crd.SparkNodeSelector;
+import tech.stackable.spark.operator.cluster.versioned.config.SparkConfigVersion;
 import tech.stackable.spark.operator.common.fabric8.SparkClusterDoneable;
 import tech.stackable.spark.operator.common.fabric8.SparkClusterList;
+import tech.stackable.spark.operator.common.type.SparkOperatorConfig;
 
 public abstract class SparkVersionedClusterController {
 
+  private final SparkConfigVersion version;
   private final KubernetesClient client;
   private final Lister<Pod> podLister;
   private final Lister<SparkCluster> crdLister;
   private final MixedOperation<SparkCluster, SparkClusterList, SparkClusterDoneable, Resource<SparkCluster, SparkClusterDoneable>> crdClient;
 
-  protected SparkVersionedClusterController(KubernetesClient client, Lister<Pod> podLister, Lister<SparkCluster> crdLister,
+  protected SparkVersionedClusterController(SparkConfigVersion version, KubernetesClient client, Lister<Pod> podLister, Lister<SparkCluster> crdLister,
     MixedOperation<SparkCluster, SparkClusterList, SparkClusterDoneable, Resource<SparkCluster, SparkClusterDoneable>> crdClient) {
+    this.version = version;
     this.client = client;
     this.podLister = podLister;
     this.crdLister = crdLister;
     this.crdClient = crdClient;
+  }
+
+  /**
+   * Create master specific config maps
+   * @param configProperties map for config properties
+   * @param envVariables     map env variables
+   * @param cluster          spark cluster
+   * @param selector         node selector
+   */
+  protected abstract void createMasterConfigMaps(Map<String,String> configProperties, Map<String,String> envVariables, SparkCluster cluster, SparkNodeSelector selector);
+
+  /**
+   * Create worker specific config maps
+   * @param configProperties map for config properties
+   * @param envVariables     map env variables
+   * @param cluster          spark cluster
+   * @param selector         node selector
+   */
+  protected abstract void createWorkerConfigMaps(Map<String,String> configProperties, Map<String,String> envVariables, SparkCluster cluster, SparkNodeSelector selector);
+
+  /**
+   * Create history server specific config maps
+   * @param configProperties map for config properties
+   * @param envVariables     map env variables
+   * @param cluster          spark cluster
+   * @param selector         node selector
+   */
+  protected abstract void createHistoryServerConfigMaps(Map<String,String> configProperties, Map<String,String> envVariables, SparkCluster cluster, SparkNodeSelector selector);
+
+  /**
+   * Add common config properties (shared for all nodes like secret, ssl etc.) to map
+   * @param cluster spark cluster
+   * @return map with common shared config properties
+   */
+  protected abstract Map<String,String> createCommonConfigProperties(SparkCluster cluster);
+
+  /**
+   * Add common env variables (shared for all nodes like SPARK_NO_DAEMONIZE etc.) to map
+   * @param cluster spark cluster
+   * @return map with common shared env variables
+   */
+  protected abstract Map<String,String> createCommonEnvVariables(SparkCluster cluster);
+
+  /**
+   * Create config map content for master / worker / history server depending on provided node
+   *
+   * @param pods    pods to create config maps for
+   * @param cluster spark cluster
+   * @param node    spark master / worker / history server
+   *
+   * @return list of created configmaps
+   */
+  public List<ConfigMap> createConfigMaps(List<Pod> pods, SparkCluster cluster, SparkNode node) {
+    // created config maps as return value
+    List<ConfigMap> createdConfigMaps = new ArrayList<>();
+    // config map data provided by each node
+    Map<String,String> configMapData = new HashMap<>();
+    // match selector
+    Map<Pod, SparkNodeSelector> matchPodToSelectors = SparkVersionedClusterControllerHelper.getSelectorsForPod(pods, node);
+
+    Map<String,String> commonConfigProperties = createCommonConfigProperties(cluster);
+    Map<String,String> commonEnvVariables = createCommonEnvVariables(cluster);
+
+    for (Entry<Pod, SparkNodeSelector> entry : matchPodToSelectors.entrySet()) {
+      SparkNodeSelector selector = entry.getValue();
+      switch (node.getNodeType()) {
+        case MASTER:
+          createMasterConfigMaps(commonConfigProperties, commonEnvVariables, cluster, selector);
+          break;
+        case WORKER:
+          createWorkerConfigMaps(commonConfigProperties, commonEnvVariables, cluster, selector);
+          break;
+        case HISTORY_SERVER:
+          createHistoryServerConfigMaps(commonConfigProperties, commonEnvVariables, cluster, selector);
+          break;
+        default:
+          // TODO: throw exception?
+          break;
+      }
+
+      // add common config properties and env variables
+      configMapData.put("spark-defaults.conf", SparkVersionedClusterControllerHelper.convertToSparkConfig(commonConfigProperties));
+      configMapData.put("spark-env.sh", SparkVersionedClusterControllerHelper.convertToSparkEnv(commonEnvVariables));
+
+      String configMapName = SparkVersionedClusterControllerHelper.createConfigMapName(entry.getKey());
+
+      // get client for config maps
+      Resource<ConfigMap,DoneableConfigMap> configMapResource = getClient()
+          .configMaps()
+          .inNamespace(cluster.getMetadata().getNamespace())
+          .withName(configMapName);
+      // create / replace with created data
+      ConfigMap created = configMapResource.createOrReplace(
+          new ConfigMapBuilder()
+            .withNewMetadata()
+            .withName(configMapName)
+            .endMetadata()
+            .addToData(configMapData)
+            .build()
+      );
+
+      if (created != null) {
+        createdConfigMaps.add(created);
+      }
+
+    }
+    return createdConfigMaps;
   }
 
   /**
@@ -43,25 +165,115 @@ public abstract class SparkVersionedClusterController {
    *
    * @return pod created from specs
    */
-  public abstract Pod createPod(SparkCluster cluster, SparkNode node, SparkNodeSelector selector);
+  public Pod createPod(SparkCluster cluster, SparkNode node, SparkNodeSelector selector) {
+    String podName = SparkVersionedClusterControllerHelper.createPodName(cluster, node, true);
+
+    Pod pod = new Pod();
+    pod.setMetadata(
+        createMetaData(cluster, node, Collections.singletonMap(SparkOperatorConfig.POD_SELECTOR_NAME.toString(), selector.getName()), true)
+    );
+    pod.setSpec(createSpec(podName, cluster, node, selector));
+
+    return pod;
+  }
 
   /**
-   * Create config map content for master / worker
-   *
-   * @param pods    pods to create config maps for
-   * @param cluster spark cluster
-   * @param node    spark master / worker
-   *
-   * @return list of created configmaps
+   * Create pod meta data
+   * @param cluster             spark cluster
+   * @param node                master / worker / history server
+   * @param labels              additional labels
+   * @param withOwnerReference  add owner reference
+   * @return metadata for pod
    */
-  public abstract List<ConfigMap> createConfigMaps(List<Pod> pods, SparkCluster cluster, SparkNode node);
+  private static ObjectMeta createMetaData(SparkCluster cluster, SparkNode node, Map<String,String> labels, boolean withOwnerReference) {
+    String podName = SparkVersionedClusterControllerHelper.createPodName(cluster, node, true);
+
+    ObjectMetaBuilder builder = new ObjectMetaBuilder();
+    builder.withName(podName);
+    builder.withNamespace(cluster.getMetadata().getNamespace());
+
+    if(labels != null && labels.size() > 0) {
+      builder.withLabels(labels);
+    }
+
+    if(withOwnerReference) {
+      builder.addNewOwnerReference()
+        .withController(true)
+        .withApiVersion(cluster.getApiVersion())
+        .withKind(cluster.getKind())
+        .withName(cluster.getMetadata().getName())
+        .withNewUid(cluster.getMetadata().getUid())
+        .endOwnerReference();
+    }
+
+    return builder.build();
+  }
+
+  /**
+   * Create spec for pod
+   * @param podName  name of created pod
+   * @param cluster  spark cluster
+   * @param node     master / worker / history server
+   * @param selector node selector
+   * @return created spec for pod
+   */
+  private static PodSpec createSpec(String podName, SparkCluster cluster, SparkNode node, SparkNodeSelector selector) {
+    PodSpecBuilder builder = new PodSpecBuilder();
+    if(cluster.getSpec().getTolerations() != null && cluster.getSpec().getTolerations().size() > 0) {
+      builder.withTolerations(cluster.getSpec().getTolerations());
+    }
+    if(selector.getMatchLabels() != null && selector.getMatchLabels().size() > 0) {
+      builder.withNodeSelector(selector.getMatchLabels());
+    }
+    // TODO: replace hardcoded
+    builder.withContainers(createContainer("spark", podName, cluster, node));
+
+    return builder.build();
+  }
+
+  /**
+   * Create container for pod spec
+   * @param containerName name of container
+   * @param podName       name of pod (for config map)
+   * @param cluster       spark cluster
+   * @param node          master / worker / history server
+   * @return created container for spec
+   */
+  private static Container createContainer(String containerName, String podName, SparkCluster cluster, SparkNode node) {
+    String configMapName = SparkVersionedClusterControllerHelper.createConfigMapName(podName);
+    ContainerBuilder builder = new ContainerBuilder();
+    builder.withName(containerName);
+    builder.withImage(cluster.getSpec().getImage());
+    builder.withCommand(node.getCommands());
+    builder.withArgs(node.getArgs());
+    builder.withEnv(List.copyOf(node.getEnv()));
+    builder.withVolumeMounts(
+        createVolumeMount(configMapName, SparkOperatorConfig.POD_CONF_VOLUME_MOUNT_PATH.toString(), true)
+    );
+    return builder.build();
+  }
+
+  /**
+   * Create volume mount for container
+   * @param volumeMountName name of volume mount
+   * @param volumeMountPath path of volume mount
+   * @param readOnly        read only if true
+   * @return volume mount for container
+   */
+  private static VolumeMount createVolumeMount(String volumeMountName, String volumeMountPath, boolean readOnly) {
+    VolumeMountBuilder builder = new VolumeMountBuilder();
+    builder.withName(volumeMountName);
+    builder.withMountPath(volumeMountPath);
+    builder.withReadOnly(readOnly);
+    return builder.build();
+  }
 
   /**
    * Create pods with regard to spec and current state
    *
    * @param pods    list of available pods belonging to the given node
    * @param cluster current spark cluster
-   * @param node    master or worker node
+   * @param node    spark master / worker / history server
    *
    * @return list of created pods
    */
@@ -170,7 +382,7 @@ public abstract class SparkVersionedClusterController {
    *
    * @param pods    list of available pods belonging to the given node
    * @param cluster current spark cluster
-   * @param node    master or worker node
+   * @param node    spark master / worker / history server
    *
    * @return list of deleted pods
    */
@@ -232,7 +444,7 @@ public abstract class SparkVersionedClusterController {
    * Return number of pods for given nodes - Terminating is excluded
    *
    * @param cluster current spark cluster
-   * @param nodes   master, worker or history-server nodes
+   * @param nodes   spark master / worker / history server
    *
    * @return list of pods belonging to the given node(s)
    */
